@@ -1,5 +1,6 @@
 node_modules/
 .state/
+.state-private-backup/
 site/jobs.json
 .env
 .env.*

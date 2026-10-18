@@ -42,7 +42,7 @@ export function reserveBudget(db, config, micros, now = new Date()) {
 }
 
 export function monthlyKeyIsCapped(profile, monthlyUsd) {
-  return profile?.limit_reset === 'monthly' && typeof profile.limit === 'number'
+  return (profile?.limit_reset === 'monthly' || profile?.limit_reset === null) && typeof profile.limit === 'number'
     && Number.isFinite(profile.limit) && profile.limit > 0 && profile.limit <= monthlyUsd;
 }
 
@@ -73,6 +73,7 @@ export async function tagNewPostings(db, http, config, { checkpoint, now = () =>
   }
   // Verify the real key limit on every run. An operator acknowledgement alone
   // must not enable an unlimited key accidentally copied into Actions secrets.
+  // A non-resetting lifetime cap is stricter than the same monthly cap.
   const { data: profile } = await http.json('https://openrouter.ai/api/v1/key', {
     headers: { Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}` }
   });

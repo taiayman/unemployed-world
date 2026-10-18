@@ -52,11 +52,12 @@ async function tagScenario(modelData, response, llmConfig = config.llm) {
 }
 const model = { data: [{ id: config.llm.model, pricing: { prompt: '0', completion: '0' } }] };
 
-test('provider key must have a real monthly cap no higher than the app budget', () => {
+test('provider key must have a real monthly or stricter lifetime cap', () => {
   assert.equal(monthlyKeyIsCapped({ limit: null, limit_reset: null }, 5), false);
   assert.equal(monthlyKeyIsCapped({ limit: 5, limit_reset: 'daily' }, 5), false);
   assert.equal(monthlyKeyIsCapped({ limit: 10, limit_reset: 'monthly' }, 5), false);
   assert.equal(monthlyKeyIsCapped({ limit: 5, limit_reset: 'monthly' }, 5), true);
+  assert.equal(monthlyKeyIsCapped({ limit: 5, limit_reset: null }, 5), true);
 });
 
 test('an unavailable requested model never silently falls back', async () => {

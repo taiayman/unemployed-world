@@ -18,6 +18,7 @@ jobs:
     timeout-minutes: 25
     env:
       PIPELINE_STATE_GIT: '1'
+      STATE_ENCRYPTION_KEY: ${{ secrets.STATE_ENCRYPTION_KEY }}
       PIPELINE_USER_AGENT: ${{ vars.PIPELINE_USER_AGENT }}
       OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
       OPENROUTER_BILLING_ACK: ${{ vars.OPENROUTER_BILLING_ACK }}
