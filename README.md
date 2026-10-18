@@ -4,6 +4,14 @@ Daily collection → SQLite → cached OpenRouter tags → occupation metrics �
 
 The supplied split-flap UI is connected in `site/index.html`. The original Downloads file is unchanged. Random demand drift, invented chart history and sample causal explanations have been removed.
 
+## Current deployment
+
+- Public source: <https://github.com/taiayman/unemployed-world>
+- Automatic Pages deployment: <https://unemployed-world-live.pages.dev>
+- `CLOUDFLARE_GIT_DEPLOY=true` publishes only aggregate `site/jobs.json` to `main`. Cloudflare's Git integration deploys that branch without an API token.
+- Database snapshots on `pipeline-state` are encrypted. The earlier `taiayman/unemployed.world` repo remains private with its historical unencrypted snapshot; its daily workflow is disabled. Do not make that backup repo public.
+- The supplied provider key has a $5 non-resetting lifetime cap. The application's independent $5 monthly cap still applies. Renew or replace the key when its total allowance is exhausted; never raise spending automatically.
+
 ## Run locally
 
 Requires Node 24 and Git. Python and a database server are not needed.
@@ -25,10 +33,10 @@ Open <http://127.0.0.1:8788>. An initial no-LLM run collects real records and re
 1. Create a GitHub repository from this directory and push it to the default branch. A public repository has free standard GitHub-hosted Actions minutes; private repository usage counts against your included allowance. Set Actions workflow permissions to allow repository writes.
 2. Set `PIPELINE_USER_AGENT` as a repository variable, with a working contact address. Review `config/pipeline.json` and the source rules below. Add employer board slugs; there is no public global directory of Greenhouse/Lever/Ashby boards.
 3. Create a **dedicated OpenRouter key**, set its provider-side spending limit to `$5` with **monthly reset** (a non-resetting $5 lifetime cap is also accepted), and disable any automatic credit purchase. Do not reuse it elsewhere. Add `OPENROUTER_API_KEY` as an Actions secret. Set repository variable `OPENROUTER_BILLING_ACK` to `dedicated-key-monthly-limit-configured`. Keep the key's limit at or below `llm.monthlyUsd`; lower it when lowering the application cap. A lifetime-capped key stops permanently when exhausted. Prepaid credit purchase fees are separate from token usage. Also add a random 32-byte base64 `STATE_ENCRYPTION_KEY` secret and keep a secure backup; losing it loses access to the database and budget ledger.
-4. In Cloudflare, create a Pages **Direct Upload** project, then set repository variable `CLOUDFLARE_PAGES_PROJECT` to its name. Add secrets `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN` (scoped to Pages editing). Attach `unemployed.world` in Pages custom domains and configure its DNS there. Leave the project variable empty to produce only a downloadable site artifact.
+4. For token-free deployment, create a Cloudflare Pages **Git integration** project connected to `main`, with no build command and output directory `site`, then set repository variable `CLOUDFLARE_GIT_DEPLOY=true`. The pipeline commits the public aggregate JSON and Cloudflare deploys it. Alternatively, create a Pages **Direct Upload** project and set `CLOUDFLARE_PAGES_PROJECT`, `CLOUDFLARE_ACCOUNT_ID` and a scoped `CLOUDFLARE_API_TOKEN`. Leave deployment variables empty for artifact-only runs. A custom domain requires separately owning and registering that domain; the `pages.dev` hostname is free.
 5. Run **Daily departures board** manually once. The workflow creates `pipeline-state`, imports pinned reference datasets, collects the enabled sources and tags at most 160 new postings. Following runs use the same database. The daily schedule is `05:23 UTC`; GitHub cron can be delayed and public-repository schedules can be disabled after prolonged inactivity.
 
-No GitHub repository, API keys, Cloudflare project or DNS changes are created by this code.
+The application does not purchase domains, create API keys, or change billing. Repository and Cloudflare project setup is separate from the daily pipeline.
 
 ## Sources and permissions
 
