@@ -8,7 +8,7 @@ export class Http {
     this.last = new Map();
     this.blocked = new Set();
   }
-  async request(url, { method = 'GET', headers = {}, body, retries = 1, minIntervalMs, redirects = 0 } = {}) {
+  async request(url, { method = 'GET', headers = {}, body, retries = 1, minIntervalMs, redirects = 0, timeoutMs = this.config.timeoutMs } = {}) {
     const host = new URL(url).host;
     if (this.blocked.has(host)) throw new Error(`Host cooling down after rate limit: ${host}`);
     for (let attempt = 0; ; attempt++) {
@@ -20,7 +20,7 @@ export class Http {
         response = await this.fetch(url, { method, body, headers: {
           'User-Agent': process.env.PIPELINE_USER_AGENT || 'unemployed.world/1.0 (daily research pipeline)',
           Accept: 'application/json, application/rss+xml, application/atom+xml, text/xml', ...headers
-        }, signal: AbortSignal.timeout(this.config.timeoutMs), redirect: 'manual' });
+        }, signal: AbortSignal.timeout(timeoutMs), redirect: 'manual' });
       } catch (error) {
         if (method === 'GET' && attempt < retries) { await this.sleep(3000); continue; }
         throw new Error(`Network failure from ${host}: ${error.cause?.code || error.name}`);
@@ -30,7 +30,7 @@ export class Http {
         await response.body?.cancel();
         const destination = target ? new URL(target, url) : null;
         if (!destination || destination.origin !== new URL(url).origin || destination.protocol !== 'https:' || method !== 'GET' || redirects >= 3) throw new Error(`Unsafe or excessive redirect from ${host}`);
-        return this.request(destination.href, { method, headers, body, retries, minIntervalMs, redirects: redirects + 1 });
+        return this.request(destination.href, { method, headers, body, retries, minIntervalMs, redirects: redirects + 1, timeoutMs });
       }
       if (response.status === 429 || response.status === 503) {
         const raw = response.headers.get('retry-after');

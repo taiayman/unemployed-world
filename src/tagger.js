@@ -108,7 +108,7 @@ export async function tagNewPostings(db, http, config, { checkpoint, now = () =>
     if (now().toISOString().slice(0, 7) !== requestDate.toISOString().slice(0, 7)) return { state: 'month_rolled_over', tagged };
     try {
       const response = await http.json('https://openrouter.ai/api/v1/chat/completions', {
-        method: 'POST', retries: 0,
+        method: 'POST', retries: 0, timeoutMs: config.requestTimeoutMs || 120000,
         headers: { Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`, 'Content-Type': 'application/json', 'HTTP-Referer': 'https://unemployed.world', 'X-Title': 'unemployed.world daily tags' },
         body: JSON.stringify({ model: config.model, messages, max_tokens: maxTokens, temperature: 0,
           response_format: { type: 'json_object' }, reasoning: { enabled: false },

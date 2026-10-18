@@ -16,6 +16,7 @@ export function loadConfig(path = process.env.PIPELINE_CONFIG || 'config/pipelin
   const c = JSON.parse(readFileSync(path, 'utf8'));
   for (const key of ['batchSize', 'maxJobsPerRun', 'descriptionChars', 'outputTokensPerJob', 'maxAttemptsPerHash']) assert(Number.isInteger(c.llm[key]) && c.llm[key] > 0, `Invalid llm.${key}`);
   assert(c.llm.batchSize <= 20 && c.llm.maxJobsPerRun <= 2000, 'LLM run limits too large');
+  assert(Number.isInteger(c.llm.requestTimeoutMs) && c.llm.requestTimeoutMs >= 1000 && c.llm.requestTimeoutMs <= 300000, 'Invalid LLM request timeout');
   assert(c.retentionDays >= 100 && c.retentionDays <= 730, 'retentionDays must preserve 90-day baseline');
   assert(c.llm.monthlyUsd >= 0 && c.llm.monthlyUsd <= 100, 'Monthly cap must be between $0 and $100');
   assert(c.llm.maxPromptUsdPerMillion >= 0 && c.llm.maxCompletionUsdPerMillion >= 0, 'Invalid token price ceilings');

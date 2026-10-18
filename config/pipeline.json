@@ -12,8 +12,9 @@
   "llm": {
     "model": "deepseek/deepseek-v4.1-flash",
     "monthlyUsd": 5,
-    "batchSize": 8,
-    "maxJobsPerRun": 160,
+    "batchSize": 4,
+    "maxJobsPerRun": 96,
+    "requestTimeoutMs": 120000,
     "descriptionChars": 2400,
     "outputTokensPerJob": 240,
     "maxPromptUsdPerMillion": 0.2,
