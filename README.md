@@ -11,6 +11,7 @@ The supplied split-flap UI is connected in `site/index.html`. The original Downl
 - `CLOUDFLARE_GIT_DEPLOY=true` publishes only aggregate `site/jobs.json` to `main`. Cloudflare's Git integration deploys that branch without an API token.
 - Database snapshots on `pipeline-state` are encrypted. The earlier `taiayman/unemployed.world` repo remains private with its historical unencrypted snapshot; its daily workflow is disabled. Do not make that backup repo public.
 - The supplied provider key has a $5 non-resetting lifetime cap. The application's independent $5 monthly cap still applies. Renew or replace the key when its total allowance is exhausted; never raise spending automatically.
+- Manual workflow runs can set `max_new_jobs` to a smaller verification limit. The input cannot raise the configured daily cap; scheduled runs use the normal limit.
 
 ## Run locally
 
@@ -85,7 +86,7 @@ The guessed Anthropic `/news/rss.xml`, Meta AI `/blog/rss/` and DeepSeek `/rss.x
 ## Budget and deduplication
 
 - SHA-256 identity uses canonical URL, source-native ID and normalized employer/title/location. Syndicated matches share one posting before any paid call. The first captured description is stable: edits do not trigger retagging. This can merge distinct identical-title requisitions at one employer/location, so counts are a conservative sample rather than vacancy totals.
-- Tags are cached by content hash, model and prompt version. Skills, seniority, remote mode, candidate-constrained O*NET code and confidence are validated before caching. O*NET candidates are selected locally. Low-confidence or unmatched occupations are excluded from the board, not guessed.
+- Tags are cached by content hash, model and prompt version. Strict JSON Schema enforces the batch size and fields. Short per-request IDs map back to hashes locally. Skills, seniority, remote mode, candidate-constrained O*NET code and confidence are independently validated before caching. O*NET candidates are selected locally. Low-confidence or unmatched occupations are excluded from the board, not guessed.
 - The exact model is `deepseek/deepseek-v4.1-flash`. Discovery checks its availability and price ceilings. No silent model substitution. Provider routing disallows fallback and training/data collection; unsupported parameter routes can fail safely.
 - Default batches contain 4 postings and at most 96 new postings/day. LLM requests get a 120-second timeout independent of source HTTP requests. UTF-8 byte-based conservative input-token bounds, explicit output-token limits and enforced route price ceilings determine a worst-case reservation. The application cap defaults to **$5/month UTC**. Reservations are integer microdollars.
 - Each reservation and attempt counter is committed and **pushed to `pipeline-state` before the paid request**. A failed push means no request. POST requests are never automatically retried. Failed/time-out/truncated/malformed calls keep their entire reservation. At most three attempts per hash across days. Actual reported usage is recorded but does not refund the conservative ledger.

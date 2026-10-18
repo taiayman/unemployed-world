@@ -21,6 +21,11 @@ export function loadConfig(path = process.env.PIPELINE_CONFIG || 'config/pipelin
   assert(c.llm.monthlyUsd >= 0 && c.llm.monthlyUsd <= 100, 'Monthly cap must be between $0 and $100');
   assert(c.llm.maxPromptUsdPerMillion >= 0 && c.llm.maxCompletionUsdPerMillion >= 0, 'Invalid token price ceilings');
   assert(c.metrics.minMatchedDays >= 1 && c.metrics.minMatchedDays <= 7, 'Invalid minimum matched days');
+  if (process.env.PIPELINE_MAX_NEW_JOBS) {
+    const limit = Number(process.env.PIPELINE_MAX_NEW_JOBS);
+    assert(Number.isInteger(limit) && limit > 0 && limit <= c.llm.maxJobsPerRun, 'Manual tagging limit may only lower the configured run cap');
+    c.llm.maxJobsPerRun = limit;
+  }
   return c;
 }
 

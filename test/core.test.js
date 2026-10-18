@@ -75,7 +75,12 @@ test('paid call happens only after a persisted reservation; cache avoids all rep
     if (url.endsWith('/models')) return { data: [{ id: config.llm.model, pricing: { prompt: '0.00000006', completion: '0.00000014' }, context_length: 100000 }] };
     if (url.endsWith('/key')) return { data: { limit: 5, limit_reset: 'monthly', limit_remaining: 5 } };
     assert.ok(persisted);
-    const input = JSON.parse(JSON.parse(options.body).messages[1].content);
+    const request = JSON.parse(options.body);
+    assert.equal(request.response_format.type, 'json_schema');
+    assert.equal(request.response_format.json_schema.strict, true);
+    const input = JSON.parse(request.messages[1].content);
+    assert.equal(input[0].id, 'j0');
+    assert.equal(request.response_format.json_schema.schema.properties.jobs.minItems, input.length);
     return { choices: [{ finish_reason: 'stop', message: { content: JSON.stringify({ jobs: input.map(j => ({ id: j.id, skills: ['JavaScript'], seniority: 'mid', remote: 'remote', onet: j.onet_candidates[0]?.code || null, confidence: 0.9 })) }) } }], usage: { cost: 0.0001 } };
   } };
   try {
