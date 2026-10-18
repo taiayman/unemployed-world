@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { Http } from '../src/http.js';
 import { loadConfig } from '../src/pipeline.js';
 import { openDb, ingestPosting } from '../src/db.js';
-import { tagNewPostings } from '../src/tagger.js';
+import { tagNewPostings, monthlyKeyIsCapped } from '../src/tagger.js';
 import { normalizeJobs } from '../src/sources/jobs.js';
 
 const config = loadConfig();
@@ -35,6 +35,7 @@ async function tagScenario(modelData, response, llmConfig = config.llm) {
     const options = { allowPaid: true, checkpoint: async () => {}, log: () => {} };
     const http = { json: async u => {
       if (u.endsWith('/models')) return modelData;
+      if (u.endsWith('/key')) return { data: { limit: 5, limit_reset: 'monthly', limit_remaining: 5 } };
       paidCalls++;
       if (response instanceof Error) throw response;
       return response;
@@ -50,6 +51,13 @@ async function tagScenario(modelData, response, llmConfig = config.llm) {
   }
 }
 const model = { data: [{ id: config.llm.model, pricing: { prompt: '0', completion: '0' } }] };
+
+test('provider key must have a real monthly cap no higher than the app budget', () => {
+  assert.equal(monthlyKeyIsCapped({ limit: null, limit_reset: null }, 5), false);
+  assert.equal(monthlyKeyIsCapped({ limit: 5, limit_reset: 'daily' }, 5), false);
+  assert.equal(monthlyKeyIsCapped({ limit: 10, limit_reset: 'monthly' }, 5), false);
+  assert.equal(monthlyKeyIsCapped({ limit: 5, limit_reset: 'monthly' }, 5), true);
+});
 
 test('an unavailable requested model never silently falls back', async () => {
   const result = await tagScenario({ data: [{ id: 'different-model' }] });

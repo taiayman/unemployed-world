@@ -83,6 +83,7 @@ The guessed Anthropic `/news/rss.xml`, Meta AI `/blog/rss/` and DeepSeek `/rss.x
 - Each reservation and attempt counter is committed and **pushed to `pipeline-state` before the paid request**. A failed push means no request. POST requests are never automatically retried. Failed/time-out/truncated/malformed calls keep their entire reservation. At most three attempts per hash across days. Actual reported usage is recorded but does not refund the conservative ledger.
 - A hard-killed run can lose response tags, but not its already-pushed reservation. Retry attempts still consume the cap. A fresh runner refuses a missing archive on an existing branch, corrupted checksum or failed restore. Concurrency is serialized; state is never force-pushed.
 - Provider-side key enforcement is the final monetary boundary. The application cannot guarantee another provider's billing behavior. Reported charges exceeding a reservation set a persistent billing block. Review it before clearing `meta.billing_block`. Never delete the state branch to reset a budget or run multiple independent copies against the same key.
+- Before any paid batch, each run checks OpenRouter's `/key` metadata: the real key must have a monthly-reset limit no higher than the application cap. Unlimited keys and daily/weekly limits are refused even if the acknowledgement variable was set.
 
 ## What the board measures
 

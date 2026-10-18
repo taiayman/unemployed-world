@@ -41,6 +41,11 @@ export function reserveBudget(db, config, micros, now = new Date()) {
   } catch (error) { db.exec('ROLLBACK'); throw error; }
 }
 
+export function monthlyKeyIsCapped(profile, monthlyUsd) {
+  return profile?.limit_reset === 'monthly' && typeof profile.limit === 'number'
+    && Number.isFinite(profile.limit) && profile.limit > 0 && profile.limit <= monthlyUsd;
+}
+
 export async function tagNewPostings(db, http, config, { checkpoint, now = () => new Date(), log = console.log, allowPaid = false } = {}) {
   if (!process.env.OPENROUTER_API_KEY) return { state: 'no_api_key', tagged: 0 };
   if (!allowPaid || process.env.OPENROUTER_BILLING_ACK !== 'dedicated-key-monthly-limit-configured') return { state: 'billing_not_enabled', tagged: 0 };
@@ -53,6 +58,7 @@ export async function tagNewPostings(db, http, config, { checkpoint, now = () =>
     GROUP BY p.content_hash ORDER BY p.first_seen DESC,p.id LIMIT ?`)
     .all(config.promptVersion, config.model, config.promptVersion, config.model, config.maxAttemptsPerHash, config.maxJobsPerRun);
   if (!pending.length) return { state: 'nothing_new', tagged: 0 };
+  if (config.monthlyUsd === 0) return { state: 'monthly_cap_reached', tagged: 0 };
   // Discovery is free. Never substitute a different model on a 404 or outage.
   const models = await http.json('https://openrouter.ai/api/v1/models');
   const model = models.data?.find(m => m.id === config.model);
@@ -65,6 +71,13 @@ export async function tagNewPostings(db, http, config, { checkpoint, now = () =>
   for (const field of ['request', 'image', 'web_search', 'internal_reasoning']) {
     assert(!model.pricing?.[field] || Number(model.pricing[field]) === 0, `Unsupported non-token charge: ${field}`);
   }
+  // Verify the real key limit on every run. An operator acknowledgement alone
+  // must not enable an unlimited key accidentally copied into Actions secrets.
+  const { data: profile } = await http.json('https://openrouter.ai/api/v1/key', {
+    headers: { Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}` }
+  });
+  if (!monthlyKeyIsCapped(profile, config.monthlyUsd)) return { state: 'provider_monthly_limit_required', tagged: 0 };
+  if (typeof profile.limit_remaining === 'number' && profile.limit_remaining <= 0) return { state: 'provider_monthly_cap_reached', tagged: 0 };
   let tagged = 0;
   for (let offset = 0; offset < pending.length; offset += config.batchSize) {
     const batch = pending.slice(offset, offset + config.batchSize);

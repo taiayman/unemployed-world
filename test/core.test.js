@@ -73,6 +73,7 @@ test('paid call happens only after a persisted reservation; cache avoids all rep
   const http = { json: async (url, options) => {
     calls++;
     if (url.endsWith('/models')) return { data: [{ id: config.llm.model, pricing: { prompt: '0.00000006', completion: '0.00000014' }, context_length: 100000 }] };
+    if (url.endsWith('/key')) return { data: { limit: 5, limit_reset: 'monthly', limit_remaining: 5 } };
     assert.ok(persisted);
     const input = JSON.parse(JSON.parse(options.body).messages[1].content);
     return { choices: [{ finish_reason: 'stop', message: { content: JSON.stringify({ jobs: input.map(j => ({ id: j.id, skills: ['JavaScript'], seniority: 'mid', remote: 'remote', onet: j.onet_candidates[0]?.code || null, confidence: 0.9 })) }) } }], usage: { cost: 0.0001 } };
@@ -81,7 +82,7 @@ test('paid call happens only after a persisted reservation; cache avoids all rep
     const options = { allowPaid: true, checkpoint: async () => { assert.ok(db.prepare('SELECT count(*) n FROM budget').get().n > 0); persisted = true; } };
     assert.equal((await tagNewPostings(db, http, config.llm, options)).tagged, 1);
     assert.equal((await tagNewPostings(db, http, config.llm, options)).state, 'nothing_new');
-    assert.equal(calls, 2);
+    assert.equal(calls, 3);
   } finally {
     if (oldKey == null) delete process.env.OPENROUTER_API_KEY; else process.env.OPENROUTER_API_KEY = oldKey;
     if (oldAck == null) delete process.env.OPENROUTER_BILLING_ACK; else process.env.OPENROUTER_BILLING_ACK = oldAck;
@@ -96,6 +97,7 @@ test('failed persistence prevents the paid request', async () => {
   let paid = 0;
   try {
     await assert.rejects(tagNewPostings(db, { json: async u => {
+      if (u.endsWith('/key')) return { data: { limit: 5, limit_reset: 'monthly' } };
       if (!u.endsWith('/models')) paid++;
       return { data: [{ id: config.llm.model, pricing: { prompt: '0', completion: '0' } }] };
     } }, config.llm, { allowPaid: true, checkpoint: async () => { throw new Error('push failed'); } }), /push failed/);
