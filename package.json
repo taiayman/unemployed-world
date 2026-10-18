@@ -1,0 +1,22 @@
+{
+  "name": "unemployed-world",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=24.0.0" },
+  "scripts": {
+    "test": "node --test",
+    "pipeline": "node src/pipeline.js",
+    "export": "node src/pipeline.js --export-only",
+    "import": "node scripts/import-exposure.js",
+    "ui": "node scripts/connect-ui.js",
+    "preview": "node scripts/preview.js"
+  },
+  "dependencies": {
+    "csv-parse": "^7.0.3",
+    "fast-xml-parser": "^5.5.8"
+  },
+  "devDependencies": {
+    "linkedom": "^0.18.12"
+  }
+}

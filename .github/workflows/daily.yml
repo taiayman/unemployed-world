@@ -1,0 +1,69 @@
+name: Daily departures board
+
+on:
+  schedule:
+    - cron: '23 5 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: unemployed-world-pipeline
+  cancel-in-progress: false
+
+jobs:
+  daily:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      PIPELINE_STATE_GIT: '1'
+      PIPELINE_USER_AGENT: ${{ vars.PIPELINE_USER_AGENT }}
+      OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+      OPENROUTER_BILLING_ACK: ${{ vars.OPENROUTER_BILLING_ACK }}
+      ADZUNA_APP_ID: ${{ secrets.ADZUNA_APP_ID }}
+      ADZUNA_APP_KEY: ${{ secrets.ADZUNA_APP_KEY }}
+      USAJOBS_API_KEY: ${{ secrets.USAJOBS_API_KEY }}
+      USAJOBS_EMAIL: ${{ secrets.USAJOBS_EMAIL }}
+      REDDIT_CLIENT_ID: ${{ secrets.REDDIT_CLIENT_ID }}
+      REDDIT_CLIENT_SECRET: ${{ secrets.REDDIT_CLIENT_SECRET }}
+      HIMALAYAS_API_KEY: ${{ secrets.HIMALAYAS_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - name: Restore durable SQLite and billing state
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          git config --global url."https://x-access-token:${GH_TOKEN}@github.com/".insteadOf "https://github.com/"
+          export PIPELINE_REMOTE="https://github.com/${GITHUB_REPOSITORY}.git"
+          node scripts/state.js
+      - name: Collect, classify and export
+        run: npm run pipeline
+      - name: Upload static site (never the database)
+        uses: actions/upload-artifact@v4
+        with:
+          name: unemployed-world-site
+          path: site/
+          retention-days: 7
+      - name: Deploy to Cloudflare Pages
+        if: ${{ vars.CLOUDFLARE_PAGES_PROJECT != '' }}
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_PAGES_PROJECT: ${{ vars.CLOUDFLARE_PAGES_PROJECT }}
+        run: npx --yes wrangler@4 pages deploy site --project-name "$CLOUDFLARE_PAGES_PROJECT" --branch main
+        # The project name is a repository variable, not a secret.
+      - name: Save failure diagnostics (no social content or credentials)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pipeline-state-manifest
+          path: .state/manifest.json
+          if-no-files-found: ignore

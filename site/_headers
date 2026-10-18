@@ -1,0 +1,8 @@
+/jobs.json
+  Cache-Control: public, max-age=300, must-revalidate
+  X-Content-Type-Options: nosniff
+/*
+  Referrer-Policy: strict-origin-when-cross-origin
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
+  Permissions-Policy: camera=(), microphone=(), geolocation=()

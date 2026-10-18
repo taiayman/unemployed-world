@@ -1,0 +1,506 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>unemployed.world</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@700;900&family=Overpass+Mono:wght@600;700&family=Barlow+Semi+Condensed:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: airport wayfinding — a yellow signage band, a split-flap departures board, a boarding-pass detail. Single dark world by design. */
+:root{
+  color-scheme: dark;
+  --housing:#0b0d11;
+  --board:#13161c;
+  --flap:#20242c;
+  --flap-lo:#1a1d24;
+  --ink:#f1ede2;
+  --muted:#868c98;
+  --line:#272b34;
+  --sign:#ffcc00;
+  --sign-ink:#111111;
+  --s-board:#5fd38a;
+  --s-ontime:#f1ede2;
+  --s-delay:#ffcc00;
+  --s-final:#ff9a3c;
+  --s-cancel:#ff5a4e;
+  --paper:#f3efe4;
+  --paper-ink:#16181d;
+  --paper-mute:#6b6f78;
+  --display:"Big Shoulders Display", "Arial Narrow", Impact, sans-serif;
+  --mono:"Overpass Mono", "SFMono-Regular", Menlo, Consolas, monospace;
+  --body:"Barlow Semi Condensed", "Arial Narrow", "Helvetica Neue", Arial, sans-serif;
+  --cw:18px;
+}
+*{box-sizing:border-box}
+body{background:var(--housing);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.45}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--sign)}
+.wrap{max-width:1240px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+button,input{font:inherit}
+:focus-visible{outline:2px solid var(--sign);outline-offset:2px}
+
+/* Signage band */
+.sign{background:var(--sign);color:var(--sign-ink)}
+.sign .wrap{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px 24px;padding-block:14px}
+.dep{display:flex;align-items:center;gap:14px}
+.glyph{width:52px;height:52px;background:var(--sign-ink);display:grid;place-items:center;border-radius:4px;flex:none}
+.glyph svg{width:34px;height:34px;fill:var(--sign);transform:rotate(45deg)}
+.dep h1{margin:0;font-family:var(--display);font-weight:900;font-size:clamp(40px,7vw,72px);line-height:.85;letter-spacing:.01em;text-transform:uppercase}
+.dep .sub{font-family:var(--body);font-weight:600;font-size:14px;letter-spacing:.06em;text-transform:uppercase;margin-top:4px}
+.right{display:flex;align-items:center;gap:18px;flex-wrap:wrap}
+.brand{font-family:var(--mono);font-weight:700;font-size:15px;background:var(--sign-ink);color:var(--sign);padding:6px 10px;border-radius:3px}
+.clock{font-family:var(--mono);font-weight:700;font-size:28px;font-variant-numeric:tabular-nums;line-height:1}
+.clock small{font-size:12px;letter-spacing:.1em;margin-left:6px}
+
+/* Controls */
+.controls .wrap{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;padding-block:18px 10px}
+.find{flex:1 1 320px;display:flex;gap:8px;min-width:0}
+.find label{position:absolute;left:-9999px}
+.find input{flex:1;min-width:0;background:var(--board);border:1px solid var(--line);color:var(--ink);padding:12px 14px;border-radius:4px;font-family:var(--mono);font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+.find input::placeholder{color:var(--muted)}
+.btn{background:var(--sign);color:var(--sign-ink);border:0;padding:12px 16px;border-radius:4px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;cursor:pointer}
+.btn.ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}
+.btn.ghost[aria-pressed="true"]{border-color:var(--sign);color:var(--sign)}
+.hint{width:100%;color:var(--muted);font-size:14px;min-height:1.4em;margin:0}
+
+.legend .wrap{display:flex;flex-wrap:wrap;gap:8px 22px;padding-block:6px 14px}
+.lg{display:flex;align-items:baseline;gap:8px;font-size:14px;color:var(--muted)}
+.lg b{font-family:var(--mono);font-size:18px;color:var(--ink);font-variant-numeric:tabular-nums}
+.lg i{width:9px;height:9px;border-radius:50%;display:inline-block;align-self:center}
+.lg span.n{font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ink);font-size:13px}
+
+/* Board */
+.board{background:var(--board);border:1px solid var(--line);border-radius:6px;padding:14px 12px 10px;box-shadow:inset 0 2px 0 #1b1f27, 0 18px 40px rgba(0,0,0,.45)}
+.heads,.row{display:flex;align-items:center;gap:calc(var(--cw)*.8)}
+.heads{padding:0 6px 10px;border-bottom:1px solid var(--line);margin-bottom:8px}
+.heads div{font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);white-space:nowrap;overflow:hidden}
+.row{padding:5px 6px;border-radius:4px;cursor:pointer;border:1px solid transparent;width:100%;background:none;color:inherit;text-align:left}
+.row:hover{background:#181b22}
+.row[aria-selected="true"]{border-color:var(--sign);background:#1a1c20}
+.row.dim{opacity:.28}
+.grp{display:flex;gap:2px;flex:none}
+.f{position:relative;width:var(--cw);height:calc(var(--cw)*1.42);background:linear-gradient(var(--flap) 0 50%,var(--flap-lo) 50% 100%);border-radius:2px;display:grid;place-items:center;overflow:hidden;font-family:var(--mono);font-weight:700;font-size:calc(var(--cw)*.92);line-height:1;color:var(--ink)}
+.f::after{content:"";position:absolute;left:0;right:0;top:50%;height:1px;background:var(--housing);opacity:.9}
+.f .ch{display:block;transform-origin:50% 50%;padding-top:.08em}
+.f.tick .ch{animation:flip 60ms linear}
+.f.tick::before{content:"";position:absolute;inset:0 0 50% 0;background:rgba(255,255,255,.06);animation:leaf 60ms linear}
+@keyframes flip{0%{transform:scaleY(1)}50%{transform:scaleY(.08)}100%{transform:scaleY(1)}}
+@keyframes leaf{from{opacity:1}to{opacity:0}}
+.grp.code .f{color:var(--muted)}
+.st-BOARDING .f{color:var(--s-board)}
+.st-ONTIME .f{color:var(--s-ontime)}
+.st-DELAYED .f{color:var(--s-delay)}
+.st-FINALCALL .f{color:var(--s-final)}
+.st-CANCELLED .f{color:var(--s-cancel)}
+.lamp{width:calc(var(--cw)*.55);height:calc(var(--cw)*.55);border-radius:50%;flex:none;background:#2a2e36}
+.lamp.on{animation:blink 1.1s steps(1) infinite}
+@keyframes blink{50%{opacity:.25}}
+.boardfoot{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;color:var(--muted);font-size:13px;padding:10px 6px 0;border-top:1px solid var(--line);margin-top:8px}
+.sample{font-family:var(--mono);font-size:12px;color:var(--sign);letter-spacing:.06em}
+
+/* Boarding pass */
+.passwrap .wrap{padding-block:26px 8px}
+.pass{display:grid;grid-template-columns:minmax(0,1fr) 230px;background:var(--paper);color:var(--paper-ink);border-radius:10px;overflow:hidden;position:relative}
+.pass .main{padding:22px 24px 20px;min-width:0}
+.pass .stub{padding:22px 20px;border-left:2px dashed #c9c3b3;position:relative;display:flex;flex-direction:column;gap:14px}
+.pass .stub::before,.pass .stub::after{content:"";position:absolute;left:-13px;width:24px;height:24px;border-radius:50%;background:var(--housing)}
+.pass .stub::before{top:-12px}.pass .stub::after{bottom:-12px}
+.ptop{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap}
+.lab{font-size:11px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--paper-mute)}
+.val{font-family:var(--mono);font-weight:700;font-size:15px}
+.dest{font-family:var(--display);font-weight:900;font-size:clamp(34px,5.4vw,58px);line-height:.9;text-transform:uppercase;margin:4px 0 0;text-wrap:balance}
+.stamp{font-family:var(--display);font-weight:900;font-size:28px;letter-spacing:.04em;padding:4px 12px;border:3px solid currentColor;border-radius:6px;transform:rotate(-6deg);text-transform:uppercase;white-space:nowrap}
+.facts{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin:18px 0 6px;padding-top:14px;border-top:1px solid #d9d3c3}
+.facts .val{font-size:22px;font-variant-numeric:tabular-nums}
+.meter{height:8px;background:#dcd6c6;border-radius:4px;margin-top:6px;overflow:hidden}
+.meter i{display:block;height:100%;background:var(--paper-ink)}
+.chartbox{margin-top:16px}
+.chartbox svg{width:100%;height:auto;display:block}
+.events{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px}
+.events li{font-size:14px;line-height:1.3}
+.events b{font-family:var(--mono);font-size:12px;display:block;color:var(--paper-mute)}
+.barcode{height:44px;margin-top:auto;background:repeating-linear-gradient(90deg,var(--paper-ink) 0 2px,transparent 2px 4px,var(--paper-ink) 4px 5px,transparent 5px 8px,var(--paper-ink) 8px 11px,transparent 11px 12px)}
+.share{display:flex;flex-direction:column;gap:8px}
+.share .btn{background:var(--paper-ink);color:var(--paper)}
+.share input{width:100%;font-family:var(--mono);font-size:12px;padding:6px;border:1px solid #c9c3b3;background:#fff;color:var(--paper-ink)}
+.copied{font-size:13px;color:var(--paper-mute);min-height:1.2em}
+
+/* Announcements */
+.pa{margin-top:26px;border-top:1px solid var(--line);border-bottom:1px solid var(--line);background:var(--board);overflow:hidden}
+.pa .wrap{display:flex;align-items:center;gap:14px;padding-block:10px}
+.pa .tag{flex:none;background:var(--sign);color:var(--sign-ink);font-weight:700;font-size:12px;letter-spacing:.12em;text-transform:uppercase;padding:4px 8px;border-radius:3px}
+.marq{overflow:hidden;flex:1;min-width:0;white-space:nowrap}
+.marq span{display:inline-block;padding-left:100%;animation:marq 70s linear infinite;font-family:var(--mono);font-weight:600;font-size:14px;color:var(--ink)}
+@keyframes marq{to{transform:translateX(-100%)}}
+footer .wrap{padding-block:18px 28px;color:var(--muted);font-size:13px;display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px}
+
+@media (max-width:760px){
+  .pass{grid-template-columns:1fr}
+  .pass .stub{border-left:0;border-top:2px dashed #c9c3b3}
+  .pass .stub::before,.pass .stub::after{top:-13px;bottom:auto}
+  .pass .stub::before{left:-12px}.pass .stub::after{left:auto;right:-12px}
+  .facts{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .barcode{display:none}
+}
+@media (prefers-reduced-motion:reduce){
+  .f.tick .ch,.f.tick::before,.lamp.on{animation:none}
+  .marq span{animation:none;padding-left:0;white-space:normal}
+  .marq{white-space:normal}
+}
+</style>
+
+<header class="sign">
+  <div class="wrap">
+    <div class="dep">
+      <div class="glyph" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M21 16v-2l-8-5V3.5a1.5 1.5 0 0 0-3 0V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5z"/></svg></div>
+      <div>
+        <h1>Departures</h1>
+        <div class="sub">Job demand and observed AI exposure, updated daily</div>
+      </div>
+    </div>
+    <div class="right">
+      <div class="brand">unemployed.world</div>
+      <div class="clock" id="clock">--:--<small>UTC</small></div>
+    </div>
+  </div>
+</header>
+
+<section class="controls">
+  <div class="wrap">
+    <form class="find" id="find" autocomplete="off">
+      <label for="q">Find your job</label>
+      <input id="q" list="jobs" placeholder="Type your job, e.g. translator">
+      <datalist id="jobs"></datalist>
+      <button class="btn" type="submit">Check flight</button>
+    </form>
+    <button class="btn ghost" id="sound" type="button" aria-pressed="false">Sound off</button>
+    <p class="hint" id="hint" aria-live="polite">Tap any row to print its boarding pass.</p>
+  </div>
+</section>
+
+<section class="legend"><div class="wrap" id="legend"></div></section>
+
+<main class="wrap">
+  <div class="board" id="board" role="listbox" aria-label="Job departures board">
+    <div class="heads" id="heads"></div>
+    <div id="rows"></div>
+    <div class="boardfoot">
+      <span>Demand = sampled postings change over 90 days · Risk = observed AI exposure, not replacement probability</span>
+      <span class="sample">LOADING DAILY DATA</span>
+    </div>
+  </div>
+</main>
+
+<section class="passwrap"><div class="wrap"><div class="pass" id="pass" aria-live="polite"></div></div></section>
+
+<section class="pa">
+  <div class="wrap">
+    <span class="tag">Announcement</span>
+    <div class="marq"><span id="marq"></span></div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <span>Loading daily public-source observations.</span>
+    <span>Sources and methodology are included in jobs.json.</span>
+  </div>
+</footer>
+
+<script>
+(async function(){
+const reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+const CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789%+-";
+
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+let payload;
+try {
+  const response = await fetch('./jobs.json', {cache:'no-cache'});
+  if(!response.ok) throw new Error('HTTP '+response.status);
+  payload = await response.json();
+  if(payload.schemaVersion!==1 || !Array.isArray(payload.jobs)) throw new Error('Unsupported data format');
+} catch(error) {
+  document.getElementById('hint').textContent='Live data unavailable. Try again later.';
+  document.querySelector('.sample').textContent='DATA UNAVAILABLE';
+  return;
+}
+const JOBS = payload.jobs;
+document.querySelector('.sample').textContent='UPDATED '+payload.generatedAt.slice(0,16).replace('T',' ')+' UTC';
+const ageHours=(Date.now()-Date.parse(payload.generatedAt))/3600000;
+if(ageHours>48) document.querySelector('.sample').textContent+=' · STALE DATA';
+const footer=document.querySelector('footer .wrap');
+footer.innerHTML='<span>Bounded public-source samples. Risk is observed AI exposure, not a job-loss probability.</span><span><a href="./jobs.json" style="color:inherit">Data, sources and methodology</a> · O*NET® / USDOL · Anthropic</span>';
+if(!JOBS.length) {
+  document.getElementById('hint').textContent='Collecting postings. Occupations appear after O*NET matching is enabled.';
+  document.getElementById('pass').textContent='No measured occupations yet. No sample figures are shown.';
+  document.getElementById('marq').textContent=(payload.news||[]).slice(0,8).map(n=>n.title).join(' · ');
+  return;
+}
+const UNKNOWN={key:'UNKNOWN',label:'COLLECTING',meaning:'90-day comparison unavailable',color:'var(--muted)'};
+
+const STATUS = [
+  {key:"CANCELLED", label:"CANCELLED", meaning:"demand collapsing", color:"var(--s-cancel)", blink:true},
+  {key:"FINALCALL", label:"FINAL CALL", meaning:"falling fast", color:"var(--s-final)", blink:true},
+  {key:"DELAYED", label:"DELAYED", meaning:"slowing down", color:"var(--s-delay)"},
+  {key:"ONTIME", label:"ON TIME", meaning:"holding steady", color:"var(--s-ontime)"},
+  {key:"BOARDING", label:"BOARDING", meaning:"demand rising", color:"var(--s-board)", blink:true}
+];
+function status(chg){
+  if(chg==null) return UNKNOWN;
+  if(chg<=-30) return STATUS[0];
+  if(chg<=-18) return STATUS[1];
+  if(chg<=-8) return STATUS[2];
+  if(chg<8) return STATUS[3];
+  return STATUS[4];
+}
+const fmtChg = c => c==null ? "--" : ((c>0?"+":"")+c+"%");
+
+/* column layouts */
+const LAYOUTS = {
+  wide:[{k:"code",n:6,h:"Flight"},{k:"job",n:20,h:"Destination"},{k:"chg",n:5,h:"Demand"},{k:"ai",n:3,h:"Risk"},{k:"st",n:10,h:"Status"}],
+  mid:[{k:"job",n:20,h:"Destination"},{k:"chg",n:5,h:"Demand"},{k:"st",n:10,h:"Status"}],
+  narrow:[{k:"job",n:13,h:"Destination",short:true},{k:"st",n:10,h:"Status"}]
+};
+let layout = null, selected = 0;
+const rowsEl = document.getElementById('rows'), headsEl = document.getElementById('heads'), boardEl = document.getElementById('board');
+
+function value(job, col){
+  let s;
+  if(col.k==="code") s = job.code;
+  else if(col.k==="job") s = col.short ? job.short : job.name;
+  else if(col.k==="chg") s = fmtChg(job.chg).padStart(col.n," ");
+  else if(col.k==="ai") s = (job.ai==null?"--":String(job.ai)).padStart(col.n," ");
+  else s = status(job.chg).label;
+  return s.slice(0,col.n).padEnd(col.n," ");
+}
+
+/* sound */
+let audio=null, soundOn=false, lastClick=0, noiseBuf=null;
+function clickSound(){
+  if(!soundOn||!audio) return;
+  const t = performance.now(); if(t-lastClick<22) return; lastClick=t;
+  try{
+    const src = audio.createBufferSource(); src.buffer = noiseBuf;
+    const g = audio.createGain(); g.gain.value = 0.06;
+    const hp = audio.createBiquadFilter(); hp.type="highpass"; hp.frequency.value=1800;
+    src.connect(hp); hp.connect(g); g.connect(audio.destination); src.start();
+  }catch(e){}
+}
+document.getElementById('sound').addEventListener('click', e=>{
+  soundOn = !soundOn;
+  e.currentTarget.setAttribute('aria-pressed', soundOn);
+  e.currentTarget.textContent = soundOn ? "Sound on" : "Sound off";
+  if(soundOn && !audio){
+    try{
+      audio = new (window.AudioContext||window.webkitAudioContext)();
+      noiseBuf = audio.createBuffer(1, Math.floor(audio.sampleRate*0.012), audio.sampleRate);
+      const d = noiseBuf.getChannelData(0);
+      for(let i=0;i<d.length;i++) d[i]=(Math.random()*2-1)*Math.pow(1-i/d.length,3);
+    }catch(err){ soundOn=false; }
+  }
+  if(soundOn) sweep(0);
+});
+
+/* flaps */
+function setCell(el, target, delay, force){
+  const ch = el.firstChild;
+  if(!force && el.dataset.c===target) return;
+  el.dataset.c = target;
+  const show = target===" " ? " " : target;
+  if(reduce){ ch.textContent = show; return; }
+  const tok = {}; el._tok = tok;
+  let n = 2 + Math.floor(Math.random()*5);
+  setTimeout(function step(){
+    if(el._tok!==tok) return;
+    el.classList.remove('tick'); void el.offsetWidth; el.classList.add('tick');
+    ch.textContent = n>0 ? CHARS[Math.floor(Math.random()*CHARS.length)] : show;
+    clickSound();
+    if(n-- > 0) setTimeout(step, 62);
+  }, delay);
+}
+function makeCell(c){
+  const f = document.createElement('span'); f.className='f';
+  const ch = document.createElement('span'); ch.className='ch';
+  ch.textContent = c===" " ? " " : c;
+  f.dataset.c = c; f.appendChild(ch); return f;
+}
+
+function pickLayout(){
+  const w = boardEl.clientWidth;
+  return w>=860 ? "wide" : w>=560 ? "mid" : "narrow";
+}
+function sizeCells(){
+  const cols = LAYOUTS[layout];
+  const total = cols.reduce((a,c)=>a+c.n,0);
+  const avail = boardEl.clientWidth - 24 - 14 - 2;
+  // total chars + col gaps (0.8 each, incl. lamp) + lamp 0.55
+  let cw = (avail - (total-cols.length)*2) / (total + cols.length*0.8 + 0.55);
+  cw = Math.max(9, Math.min(24, Math.floor(cw)));
+  document.documentElement.style.setProperty('--cw', cw+'px');
+}
+function build(){
+  layout = pickLayout(); sizeCells();
+  const cols = LAYOUTS[layout];
+  headsEl.innerHTML = "";
+  const cw = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--cw'));
+  cols.forEach(c=>{
+    if(c.k==="st"){ const sp=document.createElement('div'); sp.style.width=(cw*.55)+'px'; sp.style.flex='none'; headsEl.appendChild(sp); }
+    const d=document.createElement('div'); d.textContent=c.h; d.style.width=(c.n*cw+(c.n-1)*2)+'px'; d.style.flex='none';
+    if(c.k==="chg"||c.k==="ai") d.style.textAlign='right';
+    headsEl.appendChild(d);
+  });
+  rowsEl.innerHTML = "";
+  JOBS.forEach((job,i)=>{
+    const r = document.createElement('button');
+    r.type="button"; r.className='row'; r.setAttribute('role','option');
+    r.setAttribute('aria-selected', i===selected); r.dataset.i=i;
+    cols.forEach(c=>{
+      if(c.k==="st"){ const l=document.createElement('span'); l.className='lamp'; r.appendChild(l); }
+      const g=document.createElement('span'); g.className='grp '+c.k; g.dataset.k=c.k;
+      value(job,c).split("").forEach(ch=>g.appendChild(makeCell(ch)));
+      r.appendChild(g);
+    });
+    r.addEventListener('click',()=>select(i,true));
+    rowsEl.appendChild(r);
+    paintRow(i);
+  });
+}
+function paintRow(i){
+  const r = rowsEl.children[i]; if(!r) return;
+  const st = status(JOBS[i].chg);
+  const g = r.querySelector('.grp.st');
+  g.className = 'grp st st-'+st.key;
+  const chgG = r.querySelector('.grp.chg');
+  if(chgG) chgG.className = 'grp chg st-'+st.key;
+  const lamp = r.querySelector('.lamp');
+  lamp.style.background = st.color;
+  lamp.classList.toggle('on', !!st.blink);
+  r.setAttribute('aria-label', JOBS[i].name+', '+st.label+', demand '+fmtChg(JOBS[i].chg)+', AI risk '+JOBS[i].ai);
+}
+function updateRow(i, delayBase){
+  const r = rowsEl.children[i]; const cols = LAYOUTS[layout];
+  cols.forEach(c=>{
+    const g = r.querySelector('.grp.'+c.k);
+    value(JOBS[i],c).split("").forEach((ch,j)=>setCell(g.children[j], ch, (delayBase||0)+j*35));
+  });
+  paintRow(i);
+}
+function sweep(base){
+  const cols = LAYOUTS[layout];
+  [...rowsEl.children].forEach((r,i)=>{
+    let col=0;
+    cols.forEach(c=>{
+      const g=r.querySelector('.grp.'+c.k);
+      value(JOBS[i],c).split("").forEach((ch,j)=>{ setCell(g.children[j], ch, base+i*70+(col+j)*18, true); });
+      col+=c.n;
+    });
+  });
+}
+
+/* legend */
+function legend(){
+  const el = document.getElementById('legend'); el.innerHTML="";
+  [...STATUS.slice().reverse(),UNKNOWN].forEach(s=>{
+    const n = JOBS.filter(j=>status(j.chg).key===s.key).length;
+    const d=document.createElement('div'); d.className='lg';
+    d.innerHTML='<i style="background:'+s.color+'"></i><b>'+n+'</b><span class="n">'+s.label+'</span><span>'+s.meaning+'</span>';
+    el.appendChild(d);
+  });
+}
+
+/* boarding pass */
+function chart(job, st){
+  const points=job.history||[], valid=points.filter(p=>Number.isFinite(p.count));
+  if(valid.length<2) return '<p>Collecting daily observations. Gaps and missing history are not filled in.</p>';
+  const W=640,H=190,L=44,R=24,T=16,B=28, hi=Math.max(1,...valid.map(p=>p.count));
+  const x=i=>L+(W-L-R)*i/Math.max(1,points.length-1), y=v=>T+(H-T-B)*(1-v/hi);
+  const lines=[]; let segment=[];
+  points.forEach((p,i)=>{if(Number.isFinite(p.count)) segment.push(x(i).toFixed(1)+','+y(p.count).toFixed(1)); else if(segment.length){lines.push(segment);segment=[];}});
+  if(segment.length) lines.push(segment);
+  return '<svg viewBox="0 0 '+W+' '+H+'" role="img" aria-label="Daily unique observed postings; gaps are missing data">'+
+    '<line x1="'+L+'" x2="'+(W-R)+'" y1="'+y(0)+'" y2="'+y(0)+'" stroke="#cfc8b6"/>'+
+    lines.map(seg=>'<polyline points="'+seg.join(' ')+'" fill="none" stroke="#16181d" stroke-width="2.5"/>').join('')+
+    '<text x="8" y="20" font-size="12">'+hi+'</text><text x="8" y="'+y(0)+'" font-size="12">0</text>'+
+    '<text x="'+L+'" y="'+(H-6)+'" font-size="11">'+esc(points[0].date)+'</text>'+
+    '<text x="'+(W-R)+'" y="'+(H-6)+'" text-anchor="end" font-size="11">'+esc(points[points.length-1].date)+'</text></svg>';
+}
+function events(job){
+  const out=[['SAMPLE',job.activeSample+' unique postings seen in the last 7 days'],['COVERAGE',Math.round(job.exposure.taskCoverage*100)+'% of O*NET tasks matched to exposure evidence']];
+  for(const evidence of job.exposure.evidence||[]) out.push(['EVIDENCE',evidence.attribution||evidence.definition||evidence.version]);
+  out.push(['CAUTION','News and sentiment do not establish why hiring changed.']);
+  return out;
+}
+function riskWord(a){ if(a==null) return "Unknown"; return a>=80?"Very high":a>=60?"High":a>=35?"Medium":"Low"; }
+function shareText(job){ return 'My job on unemployed.world: '+job.name+', '+status(job.chg).label+' ('+fmtChg(job.chg)+' demand). Check yours.'; }
+function renderPass(){
+  const job=JOBS[selected], st=status(job.chg);
+  const stampColor = st.key==="ONTIME" ? "var(--paper-ink)" : (st.key==="DELAYED" ? "#b38600" : st.color);
+  document.getElementById('pass').innerHTML =
+  '<div class="main">'+
+    '<div class="ptop"><div><div class="lab">Boarding pass · Flight '+esc(job.code)+'</div><h2 class="dest">'+esc(job.name)+'</h2></div>'+
+    '<div class="stamp" style="color:'+stampColor+'">'+st.label+'</div></div>'+
+    '<div class="facts">'+
+      '<div><div class="lab">Demand, 90 days</div><div class="val">'+fmtChg(job.chg)+'</div></div>'+
+      '<div><div class="lab">AI risk</div><div class="val">'+(job.ai??'--')+'<span style="font-size:13px">/100</span></div><div class="meter"><i style="width:'+(job.ai??0)+'%"></i></div></div>'+
+      '<div><div class="lab">Risk level</div><div class="val">'+riskWord(job.ai)+'</div></div>'+
+      '<div><div class="lab">Status means</div><div class="val" style="font-family:var(--body);font-size:18px">'+st.meaning[0].toUpperCase()+st.meaning.slice(1)+'</div></div>'+
+    '</div>'+
+    '<div class="chartbox"><div class="lab">Daily observed postings · gaps are missing data</div>'+chart(job,st)+'</div>'+
+  '</div>'+
+  '<div class="stub">'+
+    '<div><div class="lab">Passenger</div><div class="val">YOU</div></div>'+
+    '<div><div class="lab">Evidence and coverage</div><ul class="events">'+events(job).map(e=>'<li><b>'+esc(e[0])+'</b>'+esc(e[1])+'</li>').join('')+'</ul></div>'+
+    '<div class="share"><button class="btn" type="button" id="copy">Copy my status</button>'+
+    '<input id="sharetext" readonly value="'+esc(shareText(job))+'" aria-label="Status text to share"><div class="copied" id="copied"></div></div>'+
+    '<div class="barcode" aria-hidden="true"></div>'+
+  '</div>';
+  document.getElementById('copy').addEventListener('click',()=>{
+    const inp=document.getElementById('sharetext'), msg=document.getElementById('copied');
+    const fallback=()=>{ inp.focus(); inp.select(); msg.textContent='Text selected. Press copy on your keyboard.'; };
+    try{ navigator.clipboard.writeText(inp.value).then(()=>{ msg.textContent='Copied. Paste it in your post.'; }, fallback); }catch(e){ fallback(); }
+  });
+}
+function select(i, scroll){
+  selected=i;
+  [...rowsEl.children].forEach((r,j)=>r.setAttribute('aria-selected', j===i));
+  renderPass();
+  if(scroll) document.getElementById('pass').scrollIntoView({behavior: reduce?'auto':'smooth', block:'nearest'});
+}
+
+/* search */
+const dl=document.getElementById('jobs');
+JOBS.forEach(j=>{ const o=document.createElement('option'); o.value=j.name; dl.appendChild(o); });
+const q=document.getElementById('q'), hint=document.getElementById('hint');
+function match(text){
+  const t=text.trim().toUpperCase(); if(!t) return -1;
+  return JOBS.findIndex(j=>j.name.includes(t)||j.short.includes(t)||t.includes(j.short));
+}
+q.addEventListener('input',()=>{
+  const t=q.value.trim().toUpperCase();
+  [...rowsEl.children].forEach((r,i)=>r.classList.toggle('dim', !!t && !(JOBS[i].name.includes(t)||JOBS[i].short.includes(t))));
+  if(!t) hint.textContent='Tap any row to print its boarding pass.';
+});
+document.getElementById('find').addEventListener('submit',e=>{
+  e.preventDefault();
+  const i=match(q.value);
+  if(i<0){ hint.textContent = q.value.trim() ? '"'+q.value.trim()+'" is not on the board yet. More occupations appear as postings are classified.' : 'Type a job title first.'; return; }
+  hint.textContent = JOBS[i].name+' found. Boarding pass printed below.';
+  select(i,true);
+});
+
+/* clock */
+function tick(){ const d=new Date(); document.getElementById('clock').innerHTML=String(d.getUTCHours()).padStart(2,'0')+':'+String(d.getUTCMinutes()).padStart(2,'0')+'<small>UTC</small>'; }
+tick(); setInterval(tick, 10000);
+
+/* announcements */
+const PA=['Daily public API samples. A status is not proof of AI-caused job losses.',...(payload.news||[]).slice(0,10).map(n=>n.title)];
+document.getElementById('marq').textContent = PA.join("      ✈      ");
+
+/* boot */
+build(); legend(); select(0,false);
+if(!reduce) setTimeout(()=>sweep(0), 350);
+// Daily export only; no fabricated live drift.
+let rt, lastW=boardEl.clientWidth; const ro=new ResizeObserver(()=>{ clearTimeout(rt); rt=setTimeout(()=>{ const w=boardEl.clientWidth; if(Math.abs(w-lastW)<4) return; lastW=w; build(); legend(); }, 150); });
+ro.observe(boardEl);
+})();
+</script>
+
+</body></html>

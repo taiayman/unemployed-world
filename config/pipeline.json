@@ -1,0 +1,61 @@
+{
+  "database": ".state/jobs.sqlite",
+  "output": "site/jobs.json",
+  "retentionDays": 210,
+  "reference": {
+    "enabled": true,
+    "onetVersion": "31.0",
+    "onetBase": "https://www.onetcenter.org/dl_files/database/db_31_0_csv/",
+    "economicIndexRevision": "4e5f69fab13a9c3f7d0dcc31a6f893a9818738f6"
+  },
+  "http": { "minIntervalMs": 3500, "timeoutMs": 25000, "maxBytes": 12000000 },
+  "llm": {
+    "model": "deepseek/deepseek-v4.1-flash",
+    "monthlyUsd": 5,
+    "batchSize": 8,
+    "maxJobsPerRun": 160,
+    "descriptionChars": 2400,
+    "outputTokensPerJob": 240,
+    "maxPromptUsdPerMillion": 0.2,
+    "maxCompletionUsdPerMillion": 0.5,
+    "maxAttemptsPerHash": 3,
+    "promptVersion": "onet-tags-v1"
+  },
+  "jobs": {
+    "greenhouse": [],
+    "lever": [],
+    "ashby": [],
+    "workable": [],
+    "smartrecruiters": [],
+    "adzuna": { "enabled": false, "country": "us", "query": "", "maxPages": 2 },
+    "usajobs": { "enabled": false, "keyword": "", "maxPages": 2 },
+    "arbeitnow": { "enabled": true, "maxPages": 2 },
+    "himalayas": { "enabled": false, "approved": false, "maxPages": 2 },
+    "remotive": { "enabled": false, "approved": false },
+    "remoteok": { "enabled": false, "approved": false },
+    "hnHiring": { "enabled": true, "maxPages": 2 }
+  },
+  "news": {
+    "feeds": [
+      { "name": "OpenAI", "url": "https://openai.com/news/rss.xml", "enabled": true },
+      { "name": "Google DeepMind", "url": "https://deepmind.google/blog/rss.xml", "enabled": true },
+      { "name": "Anthropic", "url": null, "enabled": false },
+      { "name": "Meta AI", "url": null, "enabled": false },
+      { "name": "DeepSeek", "url": null, "enabled": false }
+    ],
+    "huggingface": true,
+    "arxiv": true,
+    "maxItems": 30
+  },
+  "sentiment": {
+    "hn": true,
+    "reddit": { "enabled": false, "approved": false, "subreddits": ["jobs", "cscareerquestions"] },
+    "bluesky": {
+      "enabled": true,
+      "url": "wss://jetstream2.us-east.bsky.network/subscribe",
+      "sampleSeconds": 30,
+      "maxMessages": 1500
+    }
+  },
+  "metrics": { "minBaselineCount": 5, "minMatchedDays": 6, "maxSourceShareShift": 0.2 }
+}
