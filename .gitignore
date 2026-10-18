@@ -1,0 +1,6 @@
+jobs.sqlite
+jobs.sqlite-*
+jobs.sqlite.gz
+encryption.key
+*.tmp
+first-run
