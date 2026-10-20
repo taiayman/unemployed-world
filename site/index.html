@@ -108,6 +108,9 @@ button,input{font:inherit}
 .val{font-family:var(--mono);font-weight:700;font-size:15px}
 .dest{font-family:var(--display);font-weight:900;font-size:clamp(34px,5.4vw,58px);line-height:.9;text-transform:uppercase;margin:4px 0 0;text-wrap:balance}
 .stamp{font-family:var(--display);font-weight:900;font-size:28px;letter-spacing:.04em;padding:4px 12px;border:3px solid currentColor;border-radius:6px;transform:rotate(-6deg);text-transform:uppercase;white-space:nowrap}
+.verdict{display:flex;gap:18px;align-items:center;margin:16px 0 4px;padding:14px 16px;border-left:8px solid var(--vc);background:#fff8}
+.verdict .big{font-family:var(--display);font-weight:900;font-size:clamp(56px,9vw,96px);line-height:.9;color:var(--vc)}
+.verdict p{margin:4px 0 0;font-size:17px}
 .facts{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin:18px 0 6px;padding-top:14px;border-top:1px solid #d9d3c3}
 .facts .val{font-size:22px;font-variant-numeric:tabular-nums}
 .meter{height:8px;background:#dcd6c6;border-radius:4px;margin-top:6px;overflow:hidden}
@@ -432,15 +435,24 @@ function events(job){
   out.push(['CAUTION','News and sentiment do not establish why hiring changed.']);
   return out;
 }
+// Social verdict: share of opinion posts on X/LinkedIn that say the job is shrinking.
+function verdict(job){
+  const so=job.social; if(!so||so.score==null) return null;
+  const pct=Math.round(100*so.decline/(so.decline+so.growth));
+  const word=pct>=75?'DYING':pct>=55?'SINKING':pct<=25?'SAFE':'SPLIT';
+  return {pct, word, color: pct>=55?'var(--s-cancel)':pct<=25?'var(--s-board)':'#b38600', so};
+}
 function riskWord(a){ if(a==null) return "Unknown"; return a>=80?"Very high":a>=60?"High":a>=35?"Medium":"Low"; }
-function shareText(job){ return 'My job on unemployed.world: '+job.name+', '+status(job.chg).label+' ('+fmtChg(job.chg)+' demand). Check yours.'; }
+function shareText(job){ const v=verdict(job); if(v) return 'My job on unemployed.world: '+job.name+' is '+v.word+'. '+v.pct+'% of people posting about it on X and LinkedIn say it is shrinking. Check yours.'; return 'My job on unemployed.world: '+job.name+', '+status(job.chg).label+' ('+fmtChg(job.chg)+' demand). Check yours.'; }
 function renderPass(){
-  const job=JOBS[selected], st=status(job.chg);
+  const job=JOBS[selected], st=status(job.chg), v=verdict(job);
   const stampColor = st.key==="ONTIME" ? "var(--paper-ink)" : (st.key==="DELAYED" ? "#b38600" : st.color);
   document.getElementById('pass').innerHTML =
   '<div class="main">'+
     '<div class="ptop"><div><div class="lab">Boarding pass · Flight '+esc(job.code)+'</div><h2 class="dest">'+esc(job.name)+'</h2></div>'+
-    '<div class="stamp" style="color:'+stampColor+'">'+st.label+'</div></div>'+
+    '<div class="stamp" style="color:'+(v&&job.chg==null?v.color:stampColor)+'">'+(v&&job.chg==null?v.word:st.label)+'</div></div>'+
+    (v?'<div class="verdict" style="--vc:'+v.color+'"><div class="big">'+v.pct+'%</div><div><div class="lab">Social verdict · X + LinkedIn · week of '+esc(v.so.week)+'</div>'+
+      '<p>of people posting an opinion about this job say it is <b>shrinking or being replaced by AI</b>. '+v.so.decline+' said shrinking, '+v.so.growth+' said growing, out of '+v.so.sampled+' posts read ('+v.so.jobAds+' job ads not counted).</p></div></div>':'')+
     '<div class="facts">'+
       '<div><div class="lab">Demand, 90 days</div><div class="val">'+fmtChg(job.chg)+'</div></div>'+
       '<div><div class="lab">AI risk</div><div class="val">'+(job.ai??'--')+'<span style="font-size:13px">/100</span></div><div class="meter"><i style="width:'+(job.ai??0)+'%"></i></div></div>'+
