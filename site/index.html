@@ -146,8 +146,8 @@ footer .wrap{padding-block:18px 28px;color:var(--muted);font-size:13px;display:f
 }
 @media (prefers-reduced-motion:reduce){
   .f.tick .ch,.f.tick::before,.lamp.on{animation:none}
-  .marq span{animation:none;padding-left:0;white-space:normal}
-  .marq{white-space:normal}
+  .marq span{animation:none;padding-left:0}
+  .marq{overflow-x:auto}
 }
 </style>
 
@@ -441,6 +441,7 @@ function verdict(job){
   const word=pct>=75?'DYING':pct>=55?'SINKING':pct<=25?'SAFE':'SPLIT';
   return {pct, word, color: pct>=55?'var(--s-cancel)':pct<=25?'var(--s-board)':'#b38600', so};
 }
+function riskColor(a){ return a==null?'var(--muted)':a>=80?'var(--s-cancel)':a>=60?'var(--s-final)':a>=35?'var(--s-delay)':'var(--paper-ink)'; }
 function riskWord(a){ if(a==null) return "Unknown"; return a>=80?"Red zone":a>=60?"Danger":a>=35?"Exposed":"Holding, for now"; }
 function shareText(job){ const v=verdict(job); if(v) return 'My job on unemployed.world: '+job.name+' is '+v.word+'. '+v.pct+'% of people posting about it on X and LinkedIn say it is shrinking. Check yours.'; return 'My job on unemployed.world: '+job.name+', '+status(job.chg, job).label+' ('+fmtChg(job.chg)+' demand). Check yours.'; }
 function renderPass(){
@@ -454,11 +455,11 @@ function renderPass(){
       '<p>of people posting an opinion about this job say it is <b>shrinking or being replaced by AI</b>. '+v.so.decline+' said shrinking, '+v.so.growth+' said growing, out of '+v.so.sampled+' posts read ('+v.so.jobAds+' job ads not counted).</p></div></div>':'')+
     '<div class="facts">'+
       '<div><div class="lab">Demand, 90 days</div><div class="val">'+fmtChg(job.chg)+'</div></div>'+
-      '<div><div class="lab">AI risk</div><div class="val">'+(job.ai??'--')+'<span style="font-size:13px">/100</span></div><div class="meter"><i style="width:'+(job.ai??0)+'%"></i></div></div>'+
+      '<div><div class="lab">AI risk</div><div class="val">'+(job.ai??'--')+'<span style="font-size:13px">/100</span></div><div class="meter"><i style="width:'+(job.ai??0)+'%;background:'+riskColor(job.ai)+'"></i></div></div>'+
       '<div><div class="lab">Risk level</div><div class="val">'+riskWord(job.ai)+'</div></div>'+
       '<div><div class="lab">Status means</div><div class="val" style="font-family:var(--body);font-size:18px">'+st.meaning[0].toUpperCase()+st.meaning.slice(1)+'</div></div>'+
     '</div>'+
-    '<div class="chartbox"><div class="lab">Daily observed postings · gaps are missing data</div>'+chart(job,st)+'</div>'+
+    ((job.history||[]).filter(p=>Number.isFinite(p.count)).length>=2?'<div class="chartbox"><div class="lab">Daily observed postings · gaps are missing data</div>'+chart(job,st)+'</div>':'')+
   '</div>'+
   '<div class="stub">'+
     '<div><div class="lab">Passenger</div><div class="val">YOU</div></div>'+

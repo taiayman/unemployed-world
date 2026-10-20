@@ -27,7 +27,7 @@ test('UI renders unknown demand and risk without falling back to sample figures'
   assert.equal(doc.querySelectorAll('.row').length, 1);
   assert.ok(doc.querySelector('.stamp').textContent.includes('COLLECTING'));
   assert.ok(doc.querySelector('#pass').textContent.includes('Unknown'));
-  assert.ok(doc.querySelector('#pass').textContent.includes('Collecting daily observations'));
+  assert.equal(doc.querySelector('.chartbox'), null);
   assert.ok(!doc.querySelector('#pass').textContent.includes('sample'));
 });
 
