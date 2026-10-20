@@ -75,6 +75,10 @@ button,input{font:inherit}
 .row{padding:5px 6px;border-radius:4px;cursor:pointer;border:1px solid transparent;width:100%;background:none;color:inherit;text-align:left}
 .row:hover{background:#181b22}
 .row[aria-selected="true"]{border-color:var(--sign);background:#1a1c20}
+.rebook{margin:0 0 14px;padding:12px;border:1px solid var(--sign);border-radius:6px;background:var(--board)}
+.rebook[hidden]{display:none}
+.rbhead{font-family:var(--display);font-weight:800;font-size:clamp(16px,2vw,22px);letter-spacing:.04em;text-transform:uppercase;color:var(--sign);margin:0 6px 8px}
+.rbfoot{color:var(--muted);font-size:12px;margin:8px 6px 0}
 .row.dim{opacity:.28}
 .grp{display:flex;gap:2px;flex:none}
 .f{position:relative;width:var(--cw);height:calc(var(--cw)*1.42);background:linear-gradient(var(--flap) 0 50%,var(--flap-lo) 50% 100%);border-radius:2px;display:grid;place-items:center;overflow:hidden;font-family:var(--mono);font-weight:700;font-size:calc(var(--cw)*.92);line-height:1;color:var(--ink)}
@@ -136,6 +140,7 @@ footer .wrap{padding-block:18px 28px;color:var(--muted);font-size:13px;display:f
 
 
 <main class="wrap">
+  <div class="rebook" id="rebook" aria-live="polite" hidden></div>
   <div class="board" id="board" role="listbox" aria-label="Job departures board">
     <div class="heads" id="heads"></div>
     <div id="rows"></div>
@@ -356,7 +361,43 @@ function verdict(job){
 function select(i, scroll){
   selected=i;
   [...rowsEl.children].forEach((r,j)=>r.setAttribute('aria-selected', j===i));
-  if(scroll) rowsEl.children[i].scrollIntoView({behavior: reduce?'auto':'smooth', block:'center'});
+  const shown=renderRebook(i);
+  if(scroll) (shown ? rebookEl : rowsEl.children[i]).scrollIntoView({behavior: reduce?'auto':'smooth', block: shown?'start':'center'});
+}
+
+/* rebooking: shrinking jobs point to the closest-skill jobs that are doing better */
+const rebookEl=document.getElementById('rebook');
+const byId=new Map(JOBS.map(j=>[j.id,j]));
+const level=j=>STATUS.indexOf(status(j.chg,j));
+function renderRebook(i){
+  const job=JOBS[i], options=(job.rebook||[]).filter(r=>byId.has(r.id)&&r.match>=20);
+  rebookEl.innerHTML='';
+  let picks=level(job)>=3 ? options.filter(r=>level(byId.get(r.id))<=1).slice(0,3) : [];
+  if(level(job)>=3 && picks.length<3) picks=picks.concat(options.filter(r=>level(byId.get(r.id))===2).slice(0,3-picks.length));
+  rebookEl.hidden=!picks.length;
+  if(!picks.length) return false;
+  const head=document.createElement('div'); head.className='rbhead';
+  head.textContent=job.name+' is '+status(job.chg,job).label.toLowerCase()+'. Rebook to:';
+  rebookEl.appendChild(head);
+  const cols=[{k:'gate',n:3},{k:'job',n:layout==='narrow'?13:20},{k:'match',n:4},{k:'st',n:9}];
+  picks.forEach(p=>{
+    const j=byId.get(p.id), st=status(j.chg,j), at=JOBS.indexOf(j);
+    const vals={gate:'G'+String(at+1).padStart(2,'0'), job:layout==='narrow'?j.short:j.name, match:(p.match+'%').padStart(4,' '), st:st.label};
+    const r=document.createElement('button'); r.type='button'; r.className='row';
+    r.setAttribute('aria-label','Rebook to '+j.name+', '+p.match+'% skill match, '+st.label);
+    cols.forEach(c=>{
+      if(c.k==='st'){ const l=document.createElement('span'); l.className='lamp'; l.style.background=st.color; r.appendChild(l); }
+      const g=document.createElement('span'); g.className='grp '+c.k+(c.k==='st'?' st-'+st.key:'');
+      String(vals[c.k]).slice(0,c.n).padEnd(c.n,' ').split('').forEach(ch=>g.appendChild(makeCell(ch)));
+      r.appendChild(g);
+    });
+    r.addEventListener('click',()=>select(at,true));
+    rebookEl.appendChild(r);
+  });
+  const foot=document.createElement('div'); foot.className='rbfoot';
+  foot.textContent='Gate = row on the board. Match = how close the skills are (O*NET skill, knowledge and work ratings).';
+  rebookEl.appendChild(foot);
+  return true;
 }
 
 /* search */

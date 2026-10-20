@@ -47,3 +47,16 @@ test('UI escapes external names and shows measured status', async () => {
   assert.equal(doc.querySelector('#rows script'), null);
   assert.ok(doc.querySelector('.row').getAttribute('aria-label').includes('GROWING'));
 });
+
+test('a dying job offers rebooking to better jobs with similar skills', async () => {
+  const base = payload.jobs[0];
+  const doc = await render({ ...payload, market: { change: -29 }, jobs: [
+    { ...base, id: 'a', name: 'SOFTWARE DEVELOPERS', chg: -60, rebook: [{ id: 'b', match: 76 }, { id: 'c', match: 90 }] },
+    { ...base, id: 'b', name: 'THERAPISTS', short: 'THERAPISTS', chg: 3, rebook: [] },
+    { ...base, id: 'c', name: 'DATA SCIENTISTS', short: 'DATA', chg: -55, rebook: [] }
+  ] });
+  const panel = doc.querySelector('#rebook');
+  assert.equal(panel.hidden, false);
+  const offers = [...panel.querySelectorAll('.row')].map(r => r.getAttribute('aria-label'));
+  assert.deepEqual(offers, ['Rebook to THERAPISTS, 76% skill match, GROWING']);
+});

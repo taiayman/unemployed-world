@@ -164,7 +164,7 @@ export function boardMarket(board) {
   return m ? { ...m, change: Math.round(100 * (m.value - m.baselineValue) / m.baselineValue), since: board.since } : null;
 }
 
-export function buildExport(db, config, weeks = [], now = new Date(), social = [], capability = [], displayNames = {}, board = null) {
+export function buildExport(db, config, weeks = [], now = new Date(), social = [], capability = [], displayNames = {}, board = null, rebook = null) {
   const date = day(now);
   const jobs = [];
   const boardRows = board ? new Map(board.rows.map(r => [r.onet, r])) : null;
@@ -177,6 +177,7 @@ export function buildExport(db, config, weeks = [], now = new Date(), social = [
     jobs.push({ id: code, code: `${code.slice(0, 2)} ${code.slice(3, 6)}`, name, short, title: occupation.title,
       chg: demand.change, ai: exposure.score, status: flightStatus(demand.change), demand, exposure, social: socialScore(social, code),
       capability: (capability.at(-1)?.rows || []).find(r => r.onet === code) ?? null,
+      rebook: rebook?.matches?.[code]?.map(([id, match]) => ({ id, match })) ?? [],
       evidence: [{ title: 'O*NET occupation and tasks', url: JSON.parse(occupation.provenance).url }, ...demand.sources.map(s => ({ title: s.source, url: s.url }))],
       history: [] });
   }
