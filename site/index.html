@@ -75,7 +75,8 @@ button,input{font:inherit}
 .heads div{font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);white-space:nowrap;overflow:hidden}
 .row{padding:5px 6px;border-radius:4px;cursor:pointer;border:1px solid transparent;width:100%;background:none;color:inherit;text-align:left}
 .row:hover{background:#181b22}
-.row[aria-selected="true"]{border-color:var(--sign);background:#1a1c20}
+.row[aria-selected="true"]{border-color:var(--sign);background:#1a1c20;flex-wrap:wrap}
+.fullname{flex-basis:100%;font-family:var(--display);font-weight:800;font-size:calc(var(--cw)*1.05);letter-spacing:.04em;text-transform:uppercase;color:var(--sign);padding:6px 0 2px}
 .row.dim{opacity:.28}
 .grp{display:flex;gap:2px;flex:none}
 .f{position:relative;width:var(--cw);height:calc(var(--cw)*1.42);background:linear-gradient(var(--flap) 0 50%,var(--flap-lo) 50% 100%);border-radius:2px;display:grid;place-items:center;overflow:hidden;font-family:var(--mono);font-weight:700;font-size:calc(var(--cw)*.92);line-height:1;color:var(--ink)}
@@ -198,10 +199,10 @@ const STATUS = [
 ];
 // Until a 90-day demand trend exists, show the social verdict, else the AI-risk level.
 function status(chg, job){
+  const v=job&&verdict(job);
+  if(v){ const key={DYING:'CANCELLED',SINKING:'FINALCALL',SPLIT:'DELAYED',SAFE:'BOARDING'}[v.word];
+    return {key, label:v.word, meaning:v.pct+'% of social posts say shrinking', color:v.color, blink:v.word==='DYING'}; }
   if(chg==null){
-    const v=job&&verdict(job);
-    if(v){ const key={DYING:'CANCELLED',SINKING:'FINALCALL',SPLIT:'DELAYED',SAFE:'BOARDING'}[v.word];
-      return {key, label:v.word, meaning:v.pct+'% of social posts say shrinking', color:v.color, blink:v.word==='DYING'}; }
     if(job&&job.ai!=null){ const a=job.ai, r=a>=80?['CANCELLED','RED ZONE']:a>=60?['FINALCALL','DANGER']:a>=35?['DELAYED','EXPOSED']:['ONTIME','HOLDING'];
       const st=STATUS.find(x=>x.key===r[0]); return {key:r[0], label:r[1], meaning:'AI exposure '+a+'/100', color:st.color, blink:a>=60}; }
     return UNKNOWN;
@@ -367,6 +368,8 @@ function verdict(job){
 function select(i, scroll){
   selected=i;
   [...rowsEl.children].forEach((r,j)=>r.setAttribute('aria-selected', j===i));
+  rowsEl.querySelectorAll('.fullname').forEach(e=>e.remove());
+  const full=document.createElement('span'); full.className='fullname'; full.textContent=JOBS[i].name; rowsEl.children[i].appendChild(full);
   if(scroll) rowsEl.children[i].scrollIntoView({behavior: reduce?'auto':'smooth', block:'center'});
 }
 
