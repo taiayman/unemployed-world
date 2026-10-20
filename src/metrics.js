@@ -143,7 +143,7 @@ export function buildExport(db, config, weeks = [], now = new Date(), social = [
       history: [] });
   }
   jobs.sort((a, b) => (a.chg ?? 0) - (b.chg ?? 0) || a.id.localeCompare(b.id));
-  return { schemaVersion: 2, generatedAt: now.toISOString(),
+  return { schemaVersion: 1, generatedAt: now.toISOString(),
     methodology: {
       demand: 'Weekly manual entry of published figures (posting counts or indexes). Change = latest value vs the value about 90 days earlier, per source; occupation change is the mean across sources. Every figure links to where it was read.',
       risk: 'Published Anthropic observed exposure for exact SOC6 .00 occupations; otherwise matched O*NET task penetration mean (50% coverage required). Optional normalized task imports use automation + half augmentation. Not replacement probability or evidence of causation.',
