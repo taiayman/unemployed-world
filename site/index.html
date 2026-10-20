@@ -75,12 +75,6 @@ button,input{font:inherit}
 .row{padding:5px 6px;border-radius:4px;cursor:pointer;border:1px solid transparent;width:100%;background:none;color:inherit;text-align:left}
 .row:hover{background:#181b22}
 .row[aria-selected="true"]{border-color:var(--sign);background:#1a1c20}
-.subrows{border-left:3px solid var(--sign);margin:2px 0 6px 6px;padding:2px 0}
-.subrows .row{opacity:.92}
-.subrows .grp.code .f{color:var(--sign)}
-.subrows .grp.chg .f{color:var(--sign)}
-.subshare{display:inline-block;margin:4px 0 2px 12px;font-family:var(--mono);font-size:12px;letter-spacing:.08em;color:var(--muted);text-decoration:none}
-.subshare:hover{color:var(--sign)}
 .row.dim{opacity:.28}
 .grp{display:flex;gap:2px;flex:none}
 .f{position:relative;width:var(--cw);height:calc(var(--cw)*1.42);background:linear-gradient(var(--flap) 0 50%,var(--flap-lo) 50% 100%);border-radius:2px;display:grid;place-items:center;overflow:hidden;font-family:var(--mono);font-weight:700;font-size:calc(var(--cw)*.92);line-height:1;color:var(--ink)}
@@ -217,7 +211,6 @@ const LAYOUTS = {
   narrow:[{k:"job",n:13,h:"Job",short:true},{k:"st",n:9,h:"Status"}]
 };
 let layout = null, selected = 0;
-const boardRows = () => [...rowsEl.children].filter(e=>e.classList.contains('row'));
 const rowsEl = document.getElementById('rows'), headsEl = document.getElementById('heads'), boardEl = document.getElementById('board');
 
 function value(job, col){
@@ -321,7 +314,7 @@ function build(){
   });
 }
 function paintRow(i){
-  const r = boardRows()[i]; if(!r) return;
+  const r = rowsEl.children[i]; if(!r) return;
   const st = status(JOBS[i].chg, JOBS[i]);
   const g = r.querySelector('.grp.st');
   g.className = 'grp st st-'+st.key;
@@ -333,7 +326,7 @@ function paintRow(i){
   r.setAttribute('aria-label', JOBS[i].name+', '+st.label+', demand '+fmtChg(JOBS[i].chg)+', AI risk '+JOBS[i].ai);
 }
 function updateRow(i, delayBase){
-  const r = boardRows()[i]; const cols = LAYOUTS[layout];
+  const r = rowsEl.children[i]; const cols = LAYOUTS[layout];
   cols.forEach(c=>{
     const g = r.querySelector('.grp.'+c.k);
     value(JOBS[i],c).split("").forEach((ch,j)=>setCell(g.children[j], ch, (delayBase||0)+j*35));
@@ -342,7 +335,7 @@ function updateRow(i, delayBase){
 }
 function sweep(base){
   const cols = LAYOUTS[layout];
-  boardRows().forEach((r,i)=>{
+  [...rowsEl.children].forEach((r,i)=>{
     let col=0;
     cols.forEach(c=>{
       const g=r.querySelector('.grp.'+c.k);
@@ -362,45 +355,8 @@ function verdict(job){
 }
 function select(i, scroll){
   selected=i;
-  boardRows().forEach((r,j)=>r.setAttribute('aria-selected', j===i));
-  renderRebook(i);
-  if(scroll) boardRows()[i].scrollIntoView({behavior: reduce?'auto':'smooth', block:'center'});
-}
-
-/* rebooking: shrinking jobs point to the closest-skill jobs that are doing better */
-const byId=new Map(JOBS.map(j=>[j.id,j]));
-const level=j=>STATUS.indexOf(status(j.chg,j));
-function renderRebook(i){
-  rowsEl.querySelectorAll('.subrows').forEach(e=>e.remove());
-  const job=JOBS[i], st=status(job.chg,job), options=(job.rebook||[]).filter(r=>byId.has(r.id)&&r.match>=20);
-  let picks=level(job)>=3 ? options.filter(r=>level(byId.get(r.id))<=1).slice(0,3) : [];
-  if(level(job)>=3 && picks.length<3) picks=picks.concat(options.filter(r=>level(byId.get(r.id))===2).slice(0,3-picks.length));
-  if(!picks.length) return false;
-  const box=document.createElement('div'); box.className='subrows';
-  const cols=LAYOUTS[layout];
-  picks.forEach(p=>{
-    const j=byId.get(p.id), s2=status(j.chg,j), at=JOBS.indexOf(j);
-    const r=document.createElement('button'); r.type='button'; r.className='row sub';
-    r.setAttribute('aria-label','Rebook to '+j.name+', '+p.match+'% skill match, '+s2.label);
-    cols.forEach(c=>{
-      if(c.k==='st'){ const l=document.createElement('span'); l.className='lamp'; l.style.background=s2.color; r.appendChild(l); }
-      const text = c.k==='code' ? 'REBOOK' : c.k==='job' ? (c.short?j.short:j.name) : c.k==='chg' ? (p.match+'%').padStart(c.n,' ') : s2.label;
-      const g=document.createElement('span'); g.className='grp '+c.k+(c.k==='st'?' st-'+s2.key:'');
-      text.slice(0,c.n).padEnd(c.n,' ').split('').forEach(ch=>g.appendChild(makeCell(ch)));
-      r.appendChild(g);
-    });
-    r.addEventListener('click',()=>select(at,true));
-    box.appendChild(r);
-  });
-  const pct=c=>c==null?'--':(c>0?'+':'')+c+'%';
-  const post=job.name+' is '+st.label+': hiring '+pct(job.chg)+' since ChatGPT launched (all US jobs '+pct(MARKET)+'). Rebooking to '+byId.get(picks[0].id).name+'. Check your job:';
-  const url=((window.location&&window.location.href)||'').split(/[?#]/)[0];
-  const a=document.createElement('a'); a.className='subshare'; a.target='_blank'; a.rel='noopener';
-  a.href='https://x.com/intent/post?text='+encodeURIComponent(post)+'&url='+encodeURIComponent(url);
-  a.textContent='REBOOK = SAME SKILLS, BETTER HIRING · % = SKILL MATCH (O*NET) · POST ON X';
-  box.appendChild(a);
-  boardRows()[i].after(box);
-  return true;
+  [...rowsEl.children].forEach((r,j)=>r.setAttribute('aria-selected', j===i));
+  if(scroll) rowsEl.children[i].scrollIntoView({behavior: reduce?'auto':'smooth', block:'center'});
 }
 
 /* search */
@@ -413,7 +369,7 @@ function match(text){
 }
 q.addEventListener('input',()=>{
   const t=q.value.trim().toUpperCase();
-  boardRows().forEach((r,i)=>r.classList.toggle('dim', !!t && !(JOBS[i].name.includes(t)||JOBS[i].short.includes(t))));
+  [...rowsEl.children].forEach((r,i)=>r.classList.toggle('dim', !!t && !(JOBS[i].name.includes(t)||JOBS[i].short.includes(t))));
   if(!t) hint.textContent='Search your job.';
 });
 document.getElementById('find').addEventListener('submit',e=>{
@@ -436,7 +392,7 @@ JOBS.sort((a,b)=>doom(b)-doom(a));
 build(); select(0,false);
 if(!reduce) setTimeout(()=>sweep(0), 350);
 // Daily export only; no fabricated live drift.
-let rt, lastW=boardEl.clientWidth; const ro=new ResizeObserver(()=>{ clearTimeout(rt); rt=setTimeout(()=>{ const w=boardEl.clientWidth; if(Math.abs(w-lastW)<4) return; lastW=w; build(); renderRebook(selected); }, 150); });
+let rt, lastW=boardEl.clientWidth; const ro=new ResizeObserver(()=>{ clearTimeout(rt); rt=setTimeout(()=>{ const w=boardEl.clientWidth; if(Math.abs(w-lastW)<4) return; lastW=w; build(); }, 150); });
 ro.observe(boardEl);
 })();
 </script>
