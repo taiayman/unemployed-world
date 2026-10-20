@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import vm from 'node:vm';
 import { openDb, ingestPosting, prune } from '../src/db.js';
 import { canonicalUrl } from '../src/util.js';
-import { flightStatus, exposureScore, buildExport, readWeekly, weeklyChange, socialScore, validateSocialRow, validateCapabilityRow } from '../src/metrics.js';
+import { flightStatus, exposureScore, buildExport, readWeekly, weeklyChange, socialScore, validateSocialRow, validateCapabilityRow, boardNames } from '../src/metrics.js';
 import { importOnet, importEconomicIndex } from '../scripts/import-exposure.js';
 import { importPublishedReference } from '../src/reference.js';
 import { Http } from '../src/http.js';
@@ -198,4 +198,11 @@ test('social score: net of growth vs decline across platforms, null below 3 opin
   const cap = { onet: '15-1252.00', benchmark: 'b', leader: 'l', url: 'https://a.test', score: 68, max: 100, asOf: '2026-10-20' };
   validateCapabilityRow(cap, '2026-10-19', 'x');
   assert.throws(() => validateCapabilityRow({ ...cap, score: 120 }, '2026-10-19', 'x'), /between/);
+});
+
+test('board names fit 20 flaps (13 on phones) and use hand-written short names when needed', () => {
+  assert.deepEqual(boardNames('Accountants and Auditors'), { name: 'ACCOUNTANTS', short: 'ACCOUNTANTS' });
+  assert.equal(boardNames('Heavy and Tractor-Trailer Truck Drivers', 'TRUCK DRIVERS').name, 'TRUCK DRIVERS');
+  const n = boardNames('Software Quality Assurance Analysts and Testers');
+  assert.ok(n.name.length <= 20 && n.short.length <= 13);
 });

@@ -142,15 +142,28 @@ export function weeklyChange(weeks, code) {
   };
 }
 
-export function buildExport(db, config, weeks = [], now = new Date(), social = [], capability = []) {
+// Board names must fit 20 flaps (13 on phones): cut at the first comma or " AND ",
+// then use a hand-written short name from data/display-names.json if still too long.
+const ABBR = { DEVELOPERS: 'DEVS', ENGINEERS: 'ENGRS', SPECIALISTS: 'SPECS', TECHNICIANS: 'TECHS', MANAGERS: 'MGRS', ASSISTANTS: 'ASSTS', REPRESENTATIVES: 'REPS', ADMINISTRATORS: 'ADMINS', OPERATORS: 'OPS', ANALYSTS: 'ANALYSTS' };
+export function boardNames(title, override) {
+  let name = title.toUpperCase().split(',')[0].trim();
+  if (name.length > 20) name = name.split(' AND ')[0].trim();
+  if (override) name = override;
+  if (name.length > 20) name = name.slice(0, 20).trim();
+  let words = name.split(' ').map(w => w.length > 6 && ABBR[w] ? ABBR[w] : w);
+  while (words.length > 1 && words.join(' ').length > 13) words.pop();
+  return { name, short: words.join(' ').slice(0, 13) };
+}
+
+export function buildExport(db, config, weeks = [], now = new Date(), social = [], capability = [], displayNames = {}) {
   const date = day(now);
   const jobs = [];
   for (const code of new Set((weeks.at(-1)?.rows || []).map(r => r.onet))) {
     const occupation = db.prepare('SELECT * FROM occupations WHERE code=?').get(code);
     if (!occupation) { console.warn(`Weekly data: unknown O*NET code ${code}, skipped`); continue; }
     const demand = weeklyChange(weeks, code), exposure = exposureScore(db, code);
-    const name = occupation.title.toUpperCase();
-    jobs.push({ id: code, code: `${code.slice(0, 2)} ${code.slice(3, 6)}`, name, short: name.slice(0, 13),
+    const { name, short } = boardNames(occupation.title, displayNames[code]);
+    jobs.push({ id: code, code: `${code.slice(0, 2)} ${code.slice(3, 6)}`, name, short, title: occupation.title,
       chg: demand.change, ai: exposure.score, status: flightStatus(demand.change), demand, exposure, social: socialScore(social, code),
       capability: (capability.at(-1)?.rows || []).find(r => r.onet === code) ?? null,
       evidence: [{ title: 'O*NET occupation and tasks', url: JSON.parse(occupation.provenance).url }, ...demand.sources.map(s => ({ title: s.source, url: s.url }))],

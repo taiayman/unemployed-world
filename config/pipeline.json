@@ -12,6 +12,7 @@
   "weeklyDir": "data/weekly",
   "socialDir": "data/social",
   "capabilityDir": "data/capability",
+  "displayNames": "data/display-names.json",
   "jobs": {
     "greenhouse": [],
     "lever": [],

@@ -1,4 +1,4 @@
-import { readFileSync, openSync, closeSync, unlinkSync } from 'node:fs';
+import { readFileSync, openSync, closeSync, unlinkSync, existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { openDb, ingestPosting, sourceRun, prune } from './db.js';
@@ -57,6 +57,7 @@ export async function run({ config = loadConfig(), exportOnly = false } = {}) {
   const weeks = readWeekly(config.weeklyDir);
   const social = readWeekly(config.socialDir, validateSocialRow);
   const capability = config.capabilityDir ? readWeekly(config.capabilityDir, validateCapabilityRow) : [];
+  const displayNames = config.displayNames && existsSync(config.displayNames) ? JSON.parse(readFileSync(config.displayNames, 'utf8')) : {};
   const db = openDb(config.database);
   const lockPath = `${config.database}.lock`;
   // Refuse simultaneous local writers as well as Actions concurrency.
@@ -75,7 +76,7 @@ export async function run({ config = loadConfig(), exportOnly = false } = {}) {
       await collectGroup(db, http, config, 'sentiment', sentimentSources(config.sentiment, http), ingestSentiment);
       prune(db, config.retentionDays);
     }
-    const output = buildExport(db, config, weeks, new Date(), social, capability);
+    const output = buildExport(db, config, weeks, new Date(), social, capability, displayNames);
     await checkpoint();
     // An all-sources outage does not replace the last successful deployment.
     if (!exportOnly && succeeded === 0) throw new Error('No job source succeeded; preserved state but refused a new public export');

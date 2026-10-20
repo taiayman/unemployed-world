@@ -75,8 +75,7 @@ button,input{font:inherit}
 .heads div{font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);white-space:nowrap;overflow:hidden}
 .row{padding:5px 6px;border-radius:4px;cursor:pointer;border:1px solid transparent;width:100%;background:none;color:inherit;text-align:left}
 .row:hover{background:#181b22}
-.row[aria-selected="true"]{border-color:var(--sign);background:#1a1c20;flex-wrap:wrap}
-.fullname{flex-basis:100%;font-family:var(--display);font-weight:800;font-size:calc(var(--cw)*1.05);letter-spacing:.04em;text-transform:uppercase;color:var(--sign);padding:6px 0 2px}
+.row[aria-selected="true"]{border-color:var(--sign);background:#1a1c20}
 .row.dim{opacity:.28}
 .grp{display:flex;gap:2px;flex:none}
 .f{position:relative;width:var(--cw);height:calc(var(--cw)*1.42);background:linear-gradient(var(--flap) 0 50%,var(--flap-lo) 50% 100%);border-radius:2px;display:grid;place-items:center;overflow:hidden;font-family:var(--mono);font-weight:700;font-size:calc(var(--cw)*.92);line-height:1;color:var(--ink)}
@@ -368,8 +367,6 @@ function verdict(job){
 function select(i, scroll){
   selected=i;
   [...rowsEl.children].forEach((r,j)=>r.setAttribute('aria-selected', j===i));
-  rowsEl.querySelectorAll('.fullname').forEach(e=>e.remove());
-  const full=document.createElement('span'); full.className='fullname'; full.textContent=JOBS[i].name; rowsEl.children[i].appendChild(full);
   if(scroll) rowsEl.children[i].scrollIntoView({behavior: reduce?'auto':'smooth', block:'center'});
 }
 
