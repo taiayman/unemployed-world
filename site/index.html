@@ -142,7 +142,7 @@ footer .wrap{padding-block:18px 28px;color:var(--muted);font-size:13px;display:f
     <div class="heads" id="heads"></div>
     <div id="rows"></div>
     <div class="boardfoot">
-      <span>Postings = job postings vs their 2021–22 peak (Indeed) · Risk = observed AI exposure</span>
+      <span>Hiring = job postings today vs their 2022 peak (Indeed) · AI risk = how much AI is already used for this job's work (Anthropic) · Status = hiring trend and what people post on X and LinkedIn</span>
       <span class="sample">LOADING DAILY DATA</span>
     </div>
   </div>
@@ -187,38 +187,29 @@ if(!JOBS.length) {
   document.getElementById('hint').textContent='Collecting postings. Occupations appear after O*NET matching is enabled.';
   return;
 }
-const UNKNOWN={key:'UNKNOWN',label:'COLLECTING',meaning:'90-day comparison unavailable',color:'var(--muted)'};
+const UNKNOWN={key:'UNKNOWN',label:'NO DATA',meaning:'no hiring data yet',color:'var(--muted)'};
 
+// One plain scale for every job, worst signal wins: hiring vs peak, and the X/LinkedIn mood.
 const STATUS = [
-  {key:"CANCELLED", label:"CANCELLED", meaning:"demand collapsing", color:"var(--s-cancel)", blink:true},
-  {key:"FINALCALL", label:"FINAL CALL", meaning:"falling fast", color:"var(--s-final)", blink:true},
-  {key:"DELAYED", label:"DELAYED", meaning:"slowing down", color:"var(--s-delay)"},
-  {key:"ONTIME", label:"ON TIME", meaning:"holding steady", color:"var(--s-ontime)"},
-  {key:"BOARDING", label:"BOARDING", meaning:"demand rising", color:"var(--s-board)", blink:true}
+  {key:"BOARDING", label:"GROWING", meaning:"hiring is growing", color:"var(--s-board)"},
+  {key:"ONTIME", label:"STABLE", meaning:"hiring is holding steady", color:"var(--s-ontime)"},
+  {key:"DELAYED", label:"SLOWING", meaning:"hiring is slowing", color:"var(--s-delay)"},
+  {key:"FINALCALL", label:"SHRINKING", meaning:"hiring is shrinking", color:"var(--s-final)"},
+  {key:"CANCELLED", label:"DYING", meaning:"hiring has collapsed", color:"var(--s-cancel)", blink:true}
 ];
-// Until a 90-day demand trend exists, show the social verdict, else the AI-risk level.
 function status(chg, job){
-  const v=job&&verdict(job);
-  if(v){ const key={DYING:'CANCELLED',SINKING:'FINALCALL',SPLIT:'DELAYED',SAFE:'BOARDING'}[v.word];
-    return {key, label:v.word, meaning:v.pct+'% of social posts say shrinking', color:v.color, blink:v.word==='DYING'}; }
-  if(chg==null){
-    if(job&&job.ai!=null){ const a=job.ai, r=a>=80?['CANCELLED','RED ZONE']:a>=60?['FINALCALL','DANGER']:a>=35?['DELAYED','EXPOSED']:['ONTIME','HOLDING'];
-      const st=STATUS.find(x=>x.key===r[0]); return {key:r[0], label:r[1], meaning:'AI exposure '+a+'/100', color:st.color, blink:a>=60}; }
-    return UNKNOWN;
-  }
-  if(chg<=-30) return STATUS[0];
-  if(chg<=-18) return STATUS[1];
-  if(chg<=-8) return STATUS[2];
-  if(chg<8) return STATUS[3];
-  return STATUS[4];
+  const fromHiring = chg==null ? -1 : chg<=-50 ? 4 : chg<=-30 ? 3 : chg<=-10 ? 2 : chg<5 ? 1 : 0;
+  const v=job&&verdict(job), fromSocial = v ? {DYING:4,SINKING:3,SPLIT:2,SAFE:1}[v.word] : -1;
+  const level=Math.max(fromHiring, fromSocial);
+  return level<0 ? UNKNOWN : STATUS[level];
 }
 const fmtChg = c => c==null ? "--" : ((c>0?"+":"")+c+"%");
 
 /* column layouts */
 const LAYOUTS = {
-  wide:[{k:"code",n:6,h:"Flight"},{k:"job",n:20,h:"Destination"},{k:"chg",n:5,h:"Vs peak"},{k:"ai",n:3,h:"Risk"},{k:"st",n:10,h:"Status"}],
-  mid:[{k:"job",n:20,h:"Destination"},{k:"chg",n:5,h:"Vs peak"},{k:"st",n:10,h:"Status"}],
-  narrow:[{k:"job",n:13,h:"Destination",short:true},{k:"st",n:10,h:"Status"}]
+  wide:[{k:"code",n:6,h:"Flight"},{k:"job",n:20,h:"Job"},{k:"chg",n:5,h:"Hiring"},{k:"ai",n:4,h:"AI risk"},{k:"st",n:9,h:"Status"}],
+  mid:[{k:"job",n:20,h:"Job"},{k:"chg",n:5,h:"Hiring"},{k:"st",n:9,h:"Status"}],
+  narrow:[{k:"job",n:13,h:"Job",short:true},{k:"st",n:9,h:"Status"}]
 };
 let layout = null, selected = 0;
 const rowsEl = document.getElementById('rows'), headsEl = document.getElementById('heads'), boardEl = document.getElementById('board');
@@ -228,7 +219,7 @@ function value(job, col){
   if(col.k==="code") s = job.code;
   else if(col.k==="job") s = col.short ? job.short : job.name;
   else if(col.k==="chg") s = fmtChg(job.chg).padStart(col.n," ");
-  else if(col.k==="ai") s = (job.ai==null?"--":String(job.ai)).padStart(col.n," ");
+  else if(col.k==="ai") s = job.ai==null ? "--" : job.ai>=60 ? "HIGH" : job.ai>=35 ? "MED" : "LOW";
   else s = status(job.chg, job).label;
   return s.slice(0,col.n).padEnd(col.n," ");
 }

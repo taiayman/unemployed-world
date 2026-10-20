@@ -25,7 +25,7 @@ const payload = { schemaVersion: 1, generatedAt: new Date().toISOString(), news:
 test('UI renders unknown demand and risk without falling back to sample figures', async () => {
   const doc = await render(payload);
   assert.equal(doc.querySelectorAll('.row').length, 1);
-  assert.ok(doc.querySelector('.row').getAttribute('aria-label').includes('COLLECTING'));
+  assert.ok(doc.querySelector('.row').getAttribute('aria-label').includes('NO DATA'));
   assert.equal(doc.querySelector('#pass'), null);
 });
 
@@ -45,5 +45,5 @@ test('UI escapes external names and shows measured status', async () => {
   const doc = await render(data);
   assert.equal(doc.querySelector('#rows img'), null);
   assert.equal(doc.querySelector('#rows script'), null);
-  assert.ok(doc.querySelector('.row').getAttribute('aria-label').includes('BOARDING'));
+  assert.ok(doc.querySelector('.row').getAttribute('aria-label').includes('GROWING'));
 });
