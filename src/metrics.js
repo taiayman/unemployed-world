@@ -106,6 +106,19 @@ export function socialScore(social, code) {
     platforms: rows.map(({ platform, query, sampled, jobAds, decline, growth, asOf }) => ({ platform, query, sampled, jobAds, decline, growth, asOf })) };
 }
 
+// Manual AI-capability figures: a published benchmark score for AI on this job's work.
+export function validateCapabilityRow(r, week, where) {
+  const fail = why => { throw new Error(`${where}: ${why}`); };
+  if (!r || typeof r !== 'object') fail('not an object');
+  if (!/^\d{2}-\d{4}\.\d{2}$/.test(r.onet)) fail('onet must look like 15-1252.00');
+  for (const k of ['benchmark', 'leader']) if (typeof r[k] !== 'string' || !r[k].trim() || r[k].length > 300) fail(`bad ${k}`);
+  if (typeof r.url !== 'string' || !/^https:\/\/\S+$/.test(r.url)) fail('url must be https');
+  if (!Number.isFinite(r.max) || r.max <= 0 || !Number.isFinite(r.score) || r.score < 0 || r.score > r.max) fail('score must be between 0 and max');
+  if (!isoDate(r.asOf)) fail('asOf must be YYYY-MM-DD');
+  const age = daysBetween(week, r.asOf);
+  if (age < -7 || age > 14) fail(`asOf ${r.asOf} is not within the week ${week}`);
+}
+
 // Per source: latest value vs its stated ~90-day baseline, or vs the same
 // source+metric entered ~13 weeks earlier. Occupation change = mean across sources.
 export function weeklyChange(weeks, code) {
@@ -129,7 +142,7 @@ export function weeklyChange(weeks, code) {
   };
 }
 
-export function buildExport(db, config, weeks = [], now = new Date(), social = []) {
+export function buildExport(db, config, weeks = [], now = new Date(), social = [], capability = []) {
   const date = day(now);
   const jobs = [];
   for (const code of new Set((weeks.at(-1)?.rows || []).map(r => r.onet))) {
@@ -139,6 +152,7 @@ export function buildExport(db, config, weeks = [], now = new Date(), social = [
     const name = occupation.title.toUpperCase();
     jobs.push({ id: code, code: `${code.slice(0, 2)} ${code.slice(3, 6)}`, name, short: name.slice(0, 13),
       chg: demand.change, ai: exposure.score, status: flightStatus(demand.change), demand, exposure, social: socialScore(social, code),
+      capability: (capability.at(-1)?.rows || []).find(r => r.onet === code) ?? null,
       evidence: [{ title: 'O*NET occupation and tasks', url: JSON.parse(occupation.provenance).url }, ...demand.sources.map(s => ({ title: s.source, url: s.url }))],
       history: [] });
   }
@@ -149,6 +163,7 @@ export function buildExport(db, config, weeks = [], now = new Date(), social = [
       risk: 'Published Anthropic observed exposure for exact SOC6 .00 occupations; otherwise matched O*NET task penetration mean (50% coverage required). Optional normalized task imports use automation + half augmentation. Not replacement probability or evidence of causation.',
       statuses: { BOARDING: '>= +8%', 'ON TIME': '-7% to +7%', DELAYED: '-17% to -8%', 'FINAL CALL': '-29% to -18%', CANCELLED: '<= -30%' },
       sentiment: 'English keyword lexicon with local negation, bounded non-representative samples. No social text or identities exported. Does not change demand or risk.',
+      capability: 'Published AI benchmark scores on the work this job does (for example AI coding agents on real software-engineering tasks). Shows what AI can do, not what it is used for; never mixed into demand or risk.',
       social: 'Weekly manual read of recent X/LinkedIn posts per occupation. Each post is counted as a job ad, decline (job shrinking or replaced), growth (job safe or growing) or neither. Score = (growth - decline) / (growth + decline) x 100, null below 3 opinion posts. Small, non-representative samples; shown separately and never mixed into demand or risk.',
       news: 'Lab feed entries, model popularity and research papers are context, not verified release events or causes of hiring changes.' },
     coverage: { occupations: jobs.length, week: weeks.at(-1)?.week ?? null,

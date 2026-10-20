@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import vm from 'node:vm';
 import { openDb, ingestPosting, prune } from '../src/db.js';
 import { canonicalUrl } from '../src/util.js';
-import { flightStatus, exposureScore, buildExport, readWeekly, weeklyChange, socialScore, validateSocialRow } from '../src/metrics.js';
+import { flightStatus, exposureScore, buildExport, readWeekly, weeklyChange, socialScore, validateSocialRow, validateCapabilityRow } from '../src/metrics.js';
 import { importOnet, importEconomicIndex } from '../scripts/import-exposure.js';
 import { importPublishedReference } from '../src/reference.js';
 import { Http } from '../src/http.js';
@@ -195,4 +195,7 @@ test('social score: net of growth vs decline across platforms, null below 3 opin
   assert.equal(socialScore(social, '29-1141.00').score, null);
   assert.equal(socialScore(social, '13-2011.00'), null);
   assert.throws(() => validateSocialRow({ ...rows[0], decline: 30 }, '2026-10-19', 'x'), /exceed/);
+  const cap = { onet: '15-1252.00', benchmark: 'b', leader: 'l', url: 'https://a.test', score: 68, max: 100, asOf: '2026-10-20' };
+  validateCapabilityRow(cap, '2026-10-19', 'x');
+  assert.throws(() => validateCapabilityRow({ ...cap, score: 120 }, '2026-10-19', 'x'), /between/);
 });

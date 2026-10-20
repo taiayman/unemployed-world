@@ -232,10 +232,11 @@ const doom = j => { const v=verdict(j); return Math.max(v?v.pct:0, j.ai||0); };
 JOBS.sort((a,b)=>doom(b)-doom(a));
 if(JOBS.length){
   const scanned=JOBS.filter(j=>j.social&&j.social.score!=null), dec=scanned.reduce((n,j)=>n+j.social.decline,0), gro=scanned.reduce((n,j)=>n+j.social.growth,0);
-  const exposed=JOBS.filter(j=>(j.ai||0)>=35).length;
+  const exposed=JOBS.filter(j=>(j.ai||0)>=35).length, cap=(JOBS.find(j=>j.capability)||{}).capability;
   document.getElementById('hero').innerHTML=(dec+gro?'<b>'+Math.round(100*dec/(dec+gro))+'%</b> of people posting about their job say it is shrinking or getting replaced by AI. ':'')+
     '<b>'+exposed+'</b> of '+JOBS.length+' jobs are already AI-exposed. Most hit right now: <b>'+esc(JOBS[0].name)+'</b>.'+
-    '<small>Social: X + LinkedIn posts read by hand'+(scanned[0]?', week of '+esc(scanned[0].social.week):'')+'. Exposure: Anthropic Economic Index observed AI usage, 35/100 or more.</small>';
+    (cap?' AI coding agents now score <b>'+cap.score+'/'+cap.max+'</b> on real software-engineering work.':'')+
+    '<small>Social: X + LinkedIn posts read by hand'+(scanned[0]?', week of '+esc(scanned[0].social.week):'')+'. Exposure: Anthropic Economic Index observed AI usage, 35/100 or more.'+(cap?' Capability: '+esc(cap.benchmark.split(' (')[0])+', '+esc(cap.asOf)+'.':'')+'</small>';
 }
 document.querySelector('.sample').textContent='UPDATED '+payload.generatedAt.slice(0,16).replace('T',' ')+' UTC';
 const ageHours=(Date.now()-Date.parse(payload.generatedAt))/3600000;
@@ -453,6 +454,8 @@ function renderPass(){
     '<div class="stamp" style="color:'+(job.chg==null?st.color:stampColor)+'">'+st.label+'</div></div>'+
     (v?'<div class="verdict" style="--vc:'+v.color+'"><div class="big">'+v.pct+'%</div><div><div class="lab">Social verdict · X + LinkedIn · week of '+esc(v.so.week)+'</div>'+
       '<p>of people posting an opinion about this job say it is <b>shrinking or being replaced by AI</b>. '+v.so.decline+' said shrinking, '+v.so.growth+' said growing, out of '+v.so.sampled+' posts read ('+v.so.jobAds+' job ads not counted).</p></div></div>':'')+
+    (job.capability?'<div class="verdict" style="--vc:var(--s-cancel)"><div class="big">'+job.capability.score+'<span style="font-size:.35em">/'+job.capability.max+'</span></div><div><div class="lab">AI capability · '+esc(job.capability.asOf)+'</div>'+
+      '<p><b>The best AI coding agents already score '+job.capability.score+'/'+job.capability.max+' on real software-engineering work.</b> '+esc(job.capability.leader)+' · '+esc(job.capability.benchmark)+'.</p></div></div>':'')+
     '<div class="facts">'+
       '<div><div class="lab">Demand, 90 days</div><div class="val">'+fmtChg(job.chg)+'</div></div>'+
       '<div><div class="lab">AI risk</div><div class="val">'+(job.ai??'--')+'<span style="font-size:13px">/100</span></div><div class="meter"><i style="width:'+(job.ai??0)+'%;background:'+riskColor(job.ai)+'"></i></div></div>'+

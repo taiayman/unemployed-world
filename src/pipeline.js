@@ -7,7 +7,7 @@ import { Http } from './http.js';
 import { jobSources, validatePosting } from './sources/jobs.js';
 import { newsSources, ingestNews } from './sources/news.js';
 import { sentimentSources, ingestSentiment } from './sources/sentiment.js';
-import { buildExport, readWeekly, validateSocialRow } from './metrics.js';
+import { buildExport, readWeekly, validateSocialRow, validateCapabilityRow } from './metrics.js';
 import { checkpointState } from '../scripts/state.js';
 import { refreshReference } from './reference.js';
 
@@ -56,6 +56,7 @@ export async function run({ config = loadConfig(), exportOnly = false } = {}) {
   // Validate manual weekly data before touching the database; a bad row stops the run.
   const weeks = readWeekly(config.weeklyDir);
   const social = readWeekly(config.socialDir, validateSocialRow);
+  const capability = config.capabilityDir ? readWeekly(config.capabilityDir, validateCapabilityRow) : [];
   const db = openDb(config.database);
   const lockPath = `${config.database}.lock`;
   // Refuse simultaneous local writers as well as Actions concurrency.
@@ -74,7 +75,7 @@ export async function run({ config = loadConfig(), exportOnly = false } = {}) {
       await collectGroup(db, http, config, 'sentiment', sentimentSources(config.sentiment, http), ingestSentiment);
       prune(db, config.retentionDays);
     }
-    const output = buildExport(db, config, weeks, new Date(), social);
+    const output = buildExport(db, config, weeks, new Date(), social, capability);
     await checkpoint();
     // An all-sources outage does not replace the last successful deployment.
     if (!exportOnly && succeeded === 0) throw new Error('No job source succeeded; preserved state but refused a new public export');

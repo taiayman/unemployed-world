@@ -11,6 +11,7 @@
   "http": { "minIntervalMs": 3500, "timeoutMs": 25000, "maxBytes": 12000000 },
   "weeklyDir": "data/weekly",
   "socialDir": "data/social",
+  "capabilityDir": "data/capability",
   "jobs": {
     "greenhouse": [],
     "lever": [],
