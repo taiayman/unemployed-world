@@ -33,7 +33,7 @@
 *{box-sizing:border-box}
 body{background:var(--housing);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.45}
 body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--sign)}
-.wrap{max-width:1240px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.wrap{max-width:1440px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
 button,input{font:inherit}
 :focus-visible{outline:2px solid var(--sign);outline-offset:2px}
 
@@ -97,57 +97,13 @@ button,input{font:inherit}
 .boardfoot{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;color:var(--muted);font-size:13px;padding:10px 6px 0;border-top:1px solid var(--line);margin-top:8px}
 .sample{font-family:var(--mono);font-size:12px;color:var(--sign);letter-spacing:.06em}
 
-/* Boarding pass */
-.passwrap .wrap{padding-block:26px 8px}
-.pass{display:grid;grid-template-columns:minmax(0,1fr) 230px;background:var(--paper);color:var(--paper-ink);border-radius:10px;overflow:hidden;position:relative}
-.pass .main{padding:22px 24px 20px;min-width:0}
-.pass .stub{padding:22px 20px;border-left:2px dashed #c9c3b3;position:relative;display:flex;flex-direction:column;gap:14px}
-.pass .stub::before,.pass .stub::after{content:"";position:absolute;left:-13px;width:24px;height:24px;border-radius:50%;background:var(--housing)}
-.pass .stub::before{top:-12px}.pass .stub::after{bottom:-12px}
-.ptop{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap}
-.lab{font-size:11px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--paper-mute)}
-.val{font-family:var(--mono);font-weight:700;font-size:15px}
-.dest{font-family:var(--display);font-weight:900;font-size:clamp(34px,5.4vw,58px);line-height:.9;text-transform:uppercase;margin:4px 0 0;text-wrap:balance}
-.stamp{font-family:var(--display);font-weight:900;font-size:28px;letter-spacing:.04em;padding:4px 12px;border:3px solid currentColor;border-radius:6px;transform:rotate(-6deg);text-transform:uppercase;white-space:nowrap}
-.verdict{display:flex;gap:18px;align-items:center;margin:16px 0 4px;padding:14px 16px;border-left:8px solid var(--vc);background:#fff8}
-.verdict .big{font-family:var(--display);font-weight:900;font-size:clamp(56px,9vw,96px);line-height:.9;color:var(--vc)}
-.verdict p{margin:4px 0 0;font-size:17px}
-.facts{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin:18px 0 6px;padding-top:14px;border-top:1px solid #d9d3c3}
-.facts .val{font-size:22px;font-variant-numeric:tabular-nums}
-.meter{height:8px;background:#dcd6c6;border-radius:4px;margin-top:6px;overflow:hidden}
-.meter i{display:block;height:100%;background:var(--paper-ink)}
-.chartbox{margin-top:16px}
-.chartbox svg{width:100%;height:auto;display:block}
-.events{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px}
-.events li{font-size:14px;line-height:1.3}
-.events b{font-family:var(--mono);font-size:12px;display:block;color:var(--paper-mute)}
-.barcode{height:44px;margin-top:auto;background:repeating-linear-gradient(90deg,var(--paper-ink) 0 2px,transparent 2px 4px,var(--paper-ink) 4px 5px,transparent 5px 8px,var(--paper-ink) 8px 11px,transparent 11px 12px)}
-.share{display:flex;flex-direction:column;gap:8px}
-.share .btn{background:var(--paper-ink);color:var(--paper)}
-.share input{width:100%;font-family:var(--mono);font-size:12px;padding:6px;border:1px solid #c9c3b3;background:#fff;color:var(--paper-ink)}
-.copied{font-size:13px;color:var(--paper-mute);min-height:1.2em}
-
-/* Announcements */
-.pa{margin-top:26px;border-top:1px solid var(--line);border-bottom:1px solid var(--line);background:var(--board);overflow:hidden}
-.pa .wrap{display:flex;align-items:center;gap:14px;padding-block:10px}
-.pa .tag{flex:none;background:var(--sign);color:var(--sign-ink);font-weight:700;font-size:12px;letter-spacing:.12em;text-transform:uppercase;padding:4px 8px;border-radius:3px}
-.marq{overflow:hidden;flex:1;min-width:0;white-space:nowrap}
-.marq span{display:inline-block;padding-left:100%;animation:marq 70s linear infinite;font-family:var(--mono);font-weight:600;font-size:14px;color:var(--ink)}
-@keyframes marq{to{transform:translateX(-100%)}}
 footer .wrap{padding-block:18px 28px;color:var(--muted);font-size:13px;display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px}
 
 @media (max-width:760px){
-  .pass{grid-template-columns:1fr}
-  .pass .stub{border-left:0;border-top:2px dashed #c9c3b3}
-  .pass .stub::before,.pass .stub::after{top:-13px;bottom:auto}
-  .pass .stub::before{left:-12px}.pass .stub::after{left:auto;right:-12px}
   .facts{grid-template-columns:repeat(2,minmax(0,1fr))}
-  .barcode{display:none}
 }
 @media (prefers-reduced-motion:reduce){
   .f.tick .ch,.f.tick::before,.lamp.on{animation:none}
-  .marq span{animation:none;padding-left:0}
-  .marq{overflow-x:auto}
 }
 </style>
 
@@ -176,7 +132,7 @@ footer .wrap{padding-block:18px 28px;color:var(--muted);font-size:13px;display:f
       <button class="btn" type="submit">Check flight</button>
     </form>
     <button class="btn ghost" id="sound" type="button" aria-pressed="false">Sound off</button>
-    <p class="hint" id="hint" aria-live="polite">Tap any row to print its boarding pass.</p>
+    <p class="hint" id="hint" aria-live="polite">Search your job.</p>
   </div>
 </section>
 
@@ -192,14 +148,7 @@ footer .wrap{padding-block:18px 28px;color:var(--muted);font-size:13px;display:f
   </div>
 </main>
 
-<section class="passwrap"><div class="wrap"><div class="pass" id="pass" aria-live="polite"></div></div></section>
 
-<section class="pa">
-  <div class="wrap">
-    <span class="tag">Announcement</span>
-    <div class="marq"><span id="marq"></span></div>
-  </div>
-</section>
 
 <footer>
   <div class="wrap">
@@ -236,8 +185,6 @@ const footer=document.querySelector('footer .wrap');
 footer.innerHTML='<span>Bounded public-source samples. Risk is observed AI exposure, not a job-loss probability.</span><span><a href="./jobs.json" style="color:inherit">Data, sources and methodology</a> · O*NET® / USDOL · Anthropic</span>';
 if(!JOBS.length) {
   document.getElementById('hint').textContent='Collecting postings. Occupations appear after O*NET matching is enabled.';
-  document.getElementById('pass').textContent='No measured occupations yet. No sample figures are shown.';
-  document.getElementById('marq').textContent=(payload.news||[]).slice(0,8).map(n=>n.title).join(' · ');
   return;
 }
 const UNKNOWN={key:'UNKNOWN',label:'COLLECTING',meaning:'90-day comparison unavailable',color:'var(--muted)'};
@@ -347,7 +294,7 @@ function sizeCells(){
   const avail = boardEl.clientWidth - 24 - 14 - 2;
   // total chars + col gaps (0.8 each, incl. lamp) + lamp 0.55
   let cw = (avail - (total-cols.length)*2) / (total + cols.length*0.8 + 0.55);
-  cw = Math.max(9, Math.min(24, Math.floor(cw)));
+  cw = Math.max(10, Math.min(30, Math.floor(cw)));
   document.documentElement.style.setProperty('--cw', cw+'px');
 }
 function build(){
@@ -410,22 +357,6 @@ function sweep(base){
 }
 
 
-/* boarding pass */
-function chart(job, st){
-  const points=job.history||[], valid=points.filter(p=>Number.isFinite(p.count));
-  if(valid.length<2) return '<p>Collecting daily observations. Gaps and missing history are not filled in.</p>';
-  const W=640,H=190,L=44,R=24,T=16,B=28, hi=Math.max(1,...valid.map(p=>p.count));
-  const x=i=>L+(W-L-R)*i/Math.max(1,points.length-1), y=v=>T+(H-T-B)*(1-v/hi);
-  const lines=[]; let segment=[];
-  points.forEach((p,i)=>{if(Number.isFinite(p.count)) segment.push(x(i).toFixed(1)+','+y(p.count).toFixed(1)); else if(segment.length){lines.push(segment);segment=[];}});
-  if(segment.length) lines.push(segment);
-  return '<svg viewBox="0 0 '+W+' '+H+'" role="img" aria-label="Daily unique observed postings; gaps are missing data">'+
-    '<line x1="'+L+'" x2="'+(W-R)+'" y1="'+y(0)+'" y2="'+y(0)+'" stroke="#cfc8b6"/>'+
-    lines.map(seg=>'<polyline points="'+seg.join(' ')+'" fill="none" stroke="#16181d" stroke-width="2.5"/>').join('')+
-    '<text x="8" y="20" font-size="12">'+hi+'</text><text x="8" y="'+y(0)+'" font-size="12">0</text>'+
-    '<text x="'+L+'" y="'+(H-6)+'" font-size="11">'+esc(points[0].date)+'</text>'+
-    '<text x="'+(W-R)+'" y="'+(H-6)+'" text-anchor="end" font-size="11">'+esc(points[points.length-1].date)+'</text></svg>';
-}
 // Social verdict: share of opinion posts on X/LinkedIn that say the job is shrinking.
 function verdict(job){
   const so=job.social; if(!so||so.score==null) return null;
@@ -433,44 +364,10 @@ function verdict(job){
   const word=pct>=75?'DYING':pct>=55?'SINKING':pct<=25?'SAFE':'SPLIT';
   return {pct, word, color: pct>=55?'var(--s-cancel)':pct<=25?'var(--s-board)':'#b38600', so};
 }
-function riskColor(a){ return a==null?'var(--muted)':a>=80?'var(--s-cancel)':a>=60?'var(--s-final)':a>=35?'var(--s-delay)':'var(--paper-ink)'; }
-function riskWord(a){ if(a==null) return "Unknown"; return a>=80?"Red zone":a>=60?"Danger":a>=35?"Exposed":"Holding, for now"; }
-function shareText(job){ const v=verdict(job); if(v) return 'My job on unemployed.world: '+job.name+' is '+v.word+'. '+v.pct+'% of people posting about it on X and LinkedIn say it is shrinking. Check yours.'; return 'My job on unemployed.world: '+job.name+', '+status(job.chg, job).label+' ('+fmtChg(job.chg)+' demand). Check yours.'; }
-function renderPass(){
-  const job=JOBS[selected], st=status(job.chg, job), v=verdict(job);
-  const stampColor = st.key==="ONTIME" ? "var(--paper-ink)" : (st.key==="DELAYED" ? "#b38600" : st.color);
-  document.getElementById('pass').innerHTML =
-  '<div class="main">'+
-    '<div class="ptop"><div><div class="lab">Boarding pass · Flight '+esc(job.code)+'</div><h2 class="dest">'+esc(job.name)+'</h2></div>'+
-    '<div class="stamp" style="color:'+(job.chg==null?st.color:stampColor)+'">'+st.label+'</div></div>'+
-    (v?'<div class="verdict" style="--vc:'+v.color+'"><div class="big">'+v.pct+'%</div><div><div class="lab">X + LinkedIn</div>'+
-      '<p>say it is dying</p></div></div>':'')+
-    (job.capability?'<div class="verdict" style="--vc:var(--s-cancel)"><div class="big">'+job.capability.score+'<span style="font-size:.35em">/'+job.capability.max+'</span></div><div><div class="lab">AI coding agents</div><p>top benchmark score</p></div></div>':'')+
-    '<div class="facts">'+
-      '<div><div class="lab">Demand, 90 days</div><div class="val">'+fmtChg(job.chg)+'</div></div>'+
-      '<div><div class="lab">AI risk</div><div class="val">'+(job.ai??'--')+'<span style="font-size:13px">/100</span></div><div class="meter"><i style="width:'+(job.ai??0)+'%;background:'+riskColor(job.ai)+'"></i></div></div>'+
-      '<div><div class="lab">Risk level</div><div class="val">'+riskWord(job.ai)+'</div></div>'+
-      '<div><div class="lab">Status means</div><div class="val" style="font-family:var(--body);font-size:18px">'+st.meaning[0].toUpperCase()+st.meaning.slice(1)+'</div></div>'+
-    '</div>'+
-    ((job.history||[]).filter(p=>Number.isFinite(p.count)).length>=2?'<div class="chartbox"><div class="lab">Daily observed postings · gaps are missing data</div>'+chart(job,st)+'</div>':'')+
-  '</div>'+
-  '<div class="stub">'+
-    '<div><div class="lab">Passenger</div><div class="val">YOU</div></div>'+
-    '<div class="share"><button class="btn" type="button" id="copy">Copy my status</button>'+
-    '<input id="sharetext" readonly value="'+esc(shareText(job))+'" aria-label="Status text to share"><div class="copied" id="copied"></div></div>'+
-    '<div class="barcode" aria-hidden="true"></div>'+
-  '</div>';
-  document.getElementById('copy').addEventListener('click',()=>{
-    const inp=document.getElementById('sharetext'), msg=document.getElementById('copied');
-    const fallback=()=>{ inp.focus(); inp.select(); msg.textContent='Text selected. Press copy on your keyboard.'; };
-    try{ navigator.clipboard.writeText(inp.value).then(()=>{ msg.textContent='Copied. Paste it in your post.'; }, fallback); }catch(e){ fallback(); }
-  });
-}
 function select(i, scroll){
   selected=i;
   [...rowsEl.children].forEach((r,j)=>r.setAttribute('aria-selected', j===i));
-  renderPass();
-  if(scroll) document.getElementById('pass').scrollIntoView({behavior: reduce?'auto':'smooth', block:'nearest'});
+  if(scroll) rowsEl.children[i].scrollIntoView({behavior: reduce?'auto':'smooth', block:'center'});
 }
 
 /* search */
@@ -484,13 +381,13 @@ function match(text){
 q.addEventListener('input',()=>{
   const t=q.value.trim().toUpperCase();
   [...rowsEl.children].forEach((r,i)=>r.classList.toggle('dim', !!t && !(JOBS[i].name.includes(t)||JOBS[i].short.includes(t))));
-  if(!t) hint.textContent='Tap any row to print its boarding pass.';
+  if(!t) hint.textContent='Search your job.';
 });
 document.getElementById('find').addEventListener('submit',e=>{
   e.preventDefault();
   const i=match(q.value);
   if(i<0){ hint.textContent = q.value.trim() ? '"'+q.value.trim()+'" is not on the board yet. More occupations appear as postings are classified.' : 'Type a job title first.'; return; }
-  hint.textContent = JOBS[i].name+' found. Boarding pass printed below.';
+  hint.textContent = JOBS[i].name+' found.';
   select(i,true);
 });
 
@@ -498,9 +395,6 @@ document.getElementById('find').addEventListener('submit',e=>{
 function tick(){ const d=new Date(); document.getElementById('clock').innerHTML=String(d.getUTCHours()).padStart(2,'0')+':'+String(d.getUTCMinutes()).padStart(2,'0')+'<small>UTC</small>'; }
 tick(); setInterval(tick, 10000);
 
-/* announcements */
-const PA=['Daily public API samples. A status is not proof of AI-caused job losses.',...(payload.news||[]).slice(0,10).map(n=>n.title)];
-document.getElementById('marq').textContent = PA.join("      ✈      ");
 
 /* boot */
 build(); select(0,false);

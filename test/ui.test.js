@@ -25,10 +25,8 @@ const payload = { schemaVersion: 1, generatedAt: new Date().toISOString(), news:
 test('UI renders unknown demand and risk without falling back to sample figures', async () => {
   const doc = await render(payload);
   assert.equal(doc.querySelectorAll('.row').length, 1);
-  assert.ok(doc.querySelector('.stamp').textContent.includes('COLLECTING'));
-  assert.ok(doc.querySelector('#pass').textContent.includes('Unknown'));
-  assert.equal(doc.querySelector('.chartbox'), null);
-  assert.ok(!doc.querySelector('#pass').textContent.includes('sample'));
+  assert.ok(doc.querySelector('.row').getAttribute('aria-label').includes('COLLECTING'));
+  assert.equal(doc.querySelector('#pass'), null);
 });
 
 test('UI handles empty and failed feeds without fabricated board rows', async () => {
@@ -39,14 +37,13 @@ test('UI handles empty and failed feeds without fabricated board rows', async ()
   assert.ok(failed.querySelector('#hint').textContent.includes('unavailable'));
 });
 
-test('UI escapes external names and evidence and uses observed history', async () => {
+test('UI escapes external names and shows measured status', async () => {
   const data = structuredClone(payload);
   Object.assign(data.jobs[0], { name: '<img src=x onerror=alert(1)>', chg: 20, ai: 50,
     history: [{ date: '2026-10-17', count: 5 }, { date: '2026-10-18', count: 6 }] });
   data.jobs[0].exposure.evidence.push({ attribution: '<script>alert(1)</script>' });
   const doc = await render(data);
-  assert.equal(doc.querySelector('#pass img'), null);
-  assert.equal(doc.querySelector('#pass script'), null);
-  assert.ok(doc.querySelector('.stamp').textContent.includes('BOARDING'));
-  assert.ok(doc.querySelector('.chartbox svg'));
+  assert.equal(doc.querySelector('#rows img'), null);
+  assert.equal(doc.querySelector('#rows script'), null);
+  assert.ok(doc.querySelector('.row').getAttribute('aria-label').includes('BOARDING'));
 });
