@@ -57,6 +57,6 @@ test('a dying job offers rebooking to better jobs with similar skills', async ()
   ] });
   const panel = doc.querySelector('#rebook');
   assert.equal(panel.hidden, false);
-  const offers = [...panel.querySelectorAll('.row')].map(r => r.getAttribute('aria-label'));
+  const offers = [...panel.querySelectorAll('.rbcard')].map(r => r.getAttribute('aria-label'));
   assert.deepEqual(offers, ['Rebook to THERAPISTS, 76% skill match, GROWING']);
 });

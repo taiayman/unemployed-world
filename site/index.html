@@ -75,10 +75,32 @@ button,input{font:inherit}
 .row{padding:5px 6px;border-radius:4px;cursor:pointer;border:1px solid transparent;width:100%;background:none;color:inherit;text-align:left}
 .row:hover{background:#181b22}
 .row[aria-selected="true"]{border-color:var(--sign);background:#1a1c20}
-.rebook{margin:0 0 14px;padding:12px;border:1px solid var(--sign);border-radius:6px;background:var(--board)}
+.rebook{margin:0 0 16px;border:1px solid var(--line);border-radius:10px;background:var(--board);overflow:hidden}
 .rebook[hidden]{display:none}
-.rbhead{font-family:var(--display);font-weight:800;font-size:clamp(16px,2vw,22px);letter-spacing:.04em;text-transform:uppercase;color:var(--sign);margin:0 6px 8px}
-.rbfoot{color:var(--muted);font-size:12px;margin:8px 6px 0}
+.rbalert{display:flex;flex-wrap:wrap;align-items:center;gap:10px 18px;padding:16px 18px;border-left:6px solid var(--c);background:linear-gradient(90deg,color-mix(in srgb,var(--c) 16%,transparent),transparent 70%)}
+.rbtag{font-family:var(--mono);font-weight:700;font-size:13px;letter-spacing:.14em;background:var(--c);color:#111;padding:5px 9px;border-radius:4px;animation:rbblink 1.4s steps(1) infinite}
+@keyframes rbblink{50%{opacity:.55}}
+.rbtitle{font-family:var(--display);font-weight:900;font-size:clamp(28px,4.4vw,46px);line-height:.9;text-transform:uppercase}
+.rbfacts{font-size:16px;color:var(--muted);flex-basis:100%}
+.rbfacts b{color:var(--c);font-family:var(--mono)}
+.rblabel{padding:14px 18px 0;font-size:12px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
+.rbcards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;padding:10px 18px 16px}
+.rbcard{all:unset;cursor:pointer;display:flex;flex-direction:column;gap:8px;padding:14px;border:1px solid var(--line);border-radius:8px;background:#0f1216}
+.rbcard:hover,.rbcard:focus-visible{border-color:var(--sign)}
+.rbgate{display:flex;justify-content:space-between;font-family:var(--mono);font-size:12px;color:var(--muted);letter-spacing:.08em}
+.rbgate b{color:var(--sign);font-size:16px}
+.rbroute{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;min-width:0}
+.rbroute span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:40%}
+.rbroute i{flex:1;border-top:2px dashed var(--line)}
+.rbdest{font-family:var(--display);font-weight:800;font-size:clamp(20px,2.4vw,28px);line-height:1;text-transform:uppercase}
+.rbmeter{height:6px;border-radius:3px;background:var(--line);overflow:hidden}
+.rbmeter i{display:block;height:100%;background:var(--sign)}
+.rbmeta{display:flex;justify-content:space-between;gap:8px;font-size:14px}
+.rbmeta b{font-family:var(--mono)}
+.rbshare{display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:0 18px 16px}
+.rbshare .btn{text-decoration:none;font-size:13px;padding:10px 14px}
+.rbsrc{color:var(--muted);font-size:12px;margin-left:auto}
+@media (max-width:760px){.rbcards{grid-template-columns:1fr}.rbsrc{margin-left:0}}
 .row.dim{opacity:.28}
 .grp{display:flex;gap:2px;flex:none}
 .f{position:relative;width:var(--cw);height:calc(var(--cw)*1.42);background:linear-gradient(var(--flap) 0 50%,var(--flap-lo) 50% 100%);border-radius:2px;display:grid;place-items:center;overflow:hidden;font-family:var(--mono);font-weight:700;font-size:calc(var(--cw)*.92);line-height:1;color:var(--ink)}
@@ -370,33 +392,32 @@ const rebookEl=document.getElementById('rebook');
 const byId=new Map(JOBS.map(j=>[j.id,j]));
 const level=j=>STATUS.indexOf(status(j.chg,j));
 function renderRebook(i){
-  const job=JOBS[i], options=(job.rebook||[]).filter(r=>byId.has(r.id)&&r.match>=20);
-  rebookEl.innerHTML='';
+  const job=JOBS[i], st=status(job.chg,job), options=(job.rebook||[]).filter(r=>byId.has(r.id)&&r.match>=20);
   let picks=level(job)>=3 ? options.filter(r=>level(byId.get(r.id))<=1).slice(0,3) : [];
   if(level(job)>=3 && picks.length<3) picks=picks.concat(options.filter(r=>level(byId.get(r.id))===2).slice(0,3-picks.length));
   rebookEl.hidden=!picks.length;
-  if(!picks.length) return false;
-  const head=document.createElement('div'); head.className='rbhead';
-  head.textContent=job.name+' is '+status(job.chg,job).label.toLowerCase()+'. Rebook to:';
-  rebookEl.appendChild(head);
-  const cols=[{k:'gate',n:3},{k:'job',n:layout==='narrow'?13:20},{k:'match',n:4},{k:'st',n:9}];
-  picks.forEach(p=>{
-    const j=byId.get(p.id), st=status(j.chg,j), at=JOBS.indexOf(j);
-    const vals={gate:'G'+String(at+1).padStart(2,'0'), job:layout==='narrow'?j.short:j.name, match:(p.match+'%').padStart(4,' '), st:st.label};
-    const r=document.createElement('button'); r.type='button'; r.className='row';
-    r.setAttribute('aria-label','Rebook to '+j.name+', '+p.match+'% skill match, '+st.label);
-    cols.forEach(c=>{
-      if(c.k==='st'){ const l=document.createElement('span'); l.className='lamp'; l.style.background=st.color; r.appendChild(l); }
-      const g=document.createElement('span'); g.className='grp '+c.k+(c.k==='st'?' st-'+st.key:'');
-      String(vals[c.k]).slice(0,c.n).padEnd(c.n,' ').split('').forEach(ch=>g.appendChild(makeCell(ch)));
-      r.appendChild(g);
-    });
-    r.addEventListener('click',()=>select(at,true));
-    rebookEl.appendChild(r);
-  });
-  const foot=document.createElement('div'); foot.className='rbfoot';
-  foot.textContent='Gate = row on the board. Match = how close the skills are (O*NET skill, knowledge and work ratings).';
-  rebookEl.appendChild(foot);
+  if(!picks.length){ rebookEl.innerHTML=''; return false; }
+  const pct=c=>c==null?'--':(c>0?'+':'')+c+'%';
+  const tag=st.label==='DYING'?'FLIGHT CANCELLED':'FLIGHT DELAYED';
+  const first=byId.get(picks[0].id);
+  const post=job.name+' is '+st.label+': hiring '+pct(job.chg)+' since ChatGPT launched (all US jobs '+pct(MARKET)+'). Rebooking to '+first.name+' ('+picks[0].match+'% skill match). Check your job:';
+  const url=((window.location&&window.location.href)||'').split(/[?#]/)[0];
+  rebookEl.style.setProperty('--c', st.color);
+  rebookEl.innerHTML=
+    '<div class="rbalert"><span class="rbtag">'+tag+'</span><span class="rbtitle">'+esc(job.name)+'</span>'+
+    '<span class="rbfacts">Hiring <b>'+pct(job.chg)+'</b> since ChatGPT launched'+(MARKET==null?'':' · all US jobs <b style="color:var(--ink)">'+pct(MARKET)+'</b>')+'</span></div>'+
+    '<div class="rblabel">Connecting flights · same skills, better hiring</div>'+
+    '<div class="rbcards">'+picks.map(p=>{ const j=byId.get(p.id), s2=status(j.chg,j), at=JOBS.indexOf(j);
+      return '<button type="button" class="rbcard" data-at="'+at+'" aria-label="Rebook to '+esc(j.name)+', '+p.match+'% skill match, '+s2.label+'">'+
+        '<span class="rbgate"><span>GATE <b>'+String(at+1).padStart(2,'0')+'</b></span><span>BOARDING NOW</span></span>'+
+        '<span class="rbroute"><span>'+esc(job.short)+'</span><i></i>✈</span>'+
+        '<span class="rbdest">'+esc(j.name)+'</span>'+
+        '<span class="rbmeter"><i style="width:'+p.match+'%"></i></span>'+
+        '<span class="rbmeta"><span><b>'+p.match+'%</b> skill match</span><span style="color:'+s2.color+'">'+s2.label+' · '+pct(j.chg)+'</span></span></button>'; }).join('')+'</div>'+
+    '<div class="rbshare"><a class="btn" target="_blank" rel="noopener" href="https://x.com/intent/post?text='+encodeURIComponent(post)+'&url='+encodeURIComponent(url)+'">Post on X</a>'+
+    '<a class="btn ghost" target="_blank" rel="noopener" href="https://www.linkedin.com/sharing/share-offsite/?url='+encodeURIComponent(url)+'">Share on LinkedIn</a>'+
+    '<span class="rbsrc">Hiring: Indeed job postings. Skill match: O*NET skill, knowledge and work ratings.</span></div>';
+  rebookEl.querySelectorAll('.rbcard').forEach(b=>b.addEventListener('click',()=>select(+b.dataset.at,true)));
   return true;
 }
 
