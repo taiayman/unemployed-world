@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import vm from 'node:vm';
 import { openDb, ingestPosting, prune } from '../src/db.js';
 import { canonicalUrl } from '../src/util.js';
-import { flightStatus, exposureScore, buildExport, readWeekly, weeklyChange, socialScore, validateSocialRow, validateCapabilityRow, boardNames } from '../src/metrics.js';
+import { flightStatus, exposureScore, buildExport, readWeekly, weeklyChange, validateRow, socialScore, validateSocialRow, validateCapabilityRow, boardNames } from '../src/metrics.js';
 import { importOnet, importEconomicIndex } from '../scripts/import-exposure.js';
 import { importPublishedReference } from '../src/reference.js';
 import { Http } from '../src/http.js';
@@ -205,4 +205,11 @@ test('board names fit 20 flaps (13 on phones) and use hand-written short names w
   assert.equal(boardNames('Heavy and Tractor-Trailer Truck Drivers', 'TRUCK DRIVERS').name, 'TRUCK DRIVERS');
   const n = boardNames('Software Quality Assurance Analysts and Testers');
   assert.ok(n.name.length <= 20 && n.short.length <= 13);
+});
+
+test('peak baselines: change vs the stated peak, and a peak below the value is rejected', () => {
+  const row = { onet: '15-1252.00', source: 'Indeed', url: 'https://a.test', metric: 'index vs peak', value: 78, asOf: '2026-10-09', baselineValue: 234, baselineAsOf: '2022-02-28', baselineKind: 'peak' };
+  validateRow(row, '2026-10-19', 'x');
+  assert.equal(weeklyChange([{ week: '2026-10-19', rows: [row] }], '15-1252.00').change, -67);
+  assert.throws(() => validateRow({ ...row, baselineValue: 50 }, '2026-10-19', 'x'), /peak/);
 });

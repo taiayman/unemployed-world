@@ -142,7 +142,7 @@ footer .wrap{padding-block:18px 28px;color:var(--muted);font-size:13px;display:f
     <div class="heads" id="heads"></div>
     <div id="rows"></div>
     <div class="boardfoot">
-      <span>Demand = sampled postings change over 90 days · Risk = observed AI exposure, not replacement probability</span>
+      <span>Postings = job postings vs their 2021–22 peak (Indeed) · Risk = observed AI exposure</span>
       <span class="sample">LOADING DAILY DATA</span>
     </div>
   </div>
@@ -176,7 +176,7 @@ try {
 }
 const JOBS = payload.jobs;
 // Most-threatened first: the higher of the social verdict and the AI-exposure score.
-const doom = j => { const v=verdict(j); return Math.max(v?v.pct:0, j.ai||0); };
+const doom = j => { const v=verdict(j); return Math.max(v?v.pct:0, j.ai||0, j.chg==null?0:-j.chg); };
 JOBS.sort((a,b)=>doom(b)-doom(a));
 document.querySelector('.sample').textContent='UPDATED '+payload.generatedAt.slice(0,16).replace('T',' ')+' UTC';
 const ageHours=(Date.now()-Date.parse(payload.generatedAt))/3600000;
@@ -216,8 +216,8 @@ const fmtChg = c => c==null ? "--" : ((c>0?"+":"")+c+"%");
 
 /* column layouts */
 const LAYOUTS = {
-  wide:[{k:"code",n:6,h:"Flight"},{k:"job",n:20,h:"Destination"},{k:"chg",n:5,h:"Demand"},{k:"ai",n:3,h:"Risk"},{k:"st",n:10,h:"Status"}],
-  mid:[{k:"job",n:20,h:"Destination"},{k:"chg",n:5,h:"Demand"},{k:"st",n:10,h:"Status"}],
+  wide:[{k:"code",n:6,h:"Flight"},{k:"job",n:20,h:"Destination"},{k:"chg",n:5,h:"Vs peak"},{k:"ai",n:3,h:"Risk"},{k:"st",n:10,h:"Status"}],
+  mid:[{k:"job",n:20,h:"Destination"},{k:"chg",n:5,h:"Vs peak"},{k:"st",n:10,h:"Status"}],
   narrow:[{k:"job",n:13,h:"Destination",short:true},{k:"st",n:10,h:"Status"}]
 };
 let layout = null, selected = 0;

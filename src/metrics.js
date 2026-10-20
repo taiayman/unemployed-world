@@ -56,11 +56,13 @@ export function validateRow(r, week, where) {
   if (!isoDate(r.asOf)) fail('asOf must be YYYY-MM-DD');
   const age = daysBetween(week, r.asOf);
   if (age < -1 || age > 14) fail(`asOf ${r.asOf} is not within 14 days of week ${week}`);
+  if (r.baselineKind != null && r.baselineKind !== 'peak') fail('baselineKind may only be "peak"');
   if (r.baselineValue != null || r.baselineAsOf != null) {
     if (!Number.isFinite(r.baselineValue) || r.baselineValue < 0) fail('baselineValue must be a number >= 0');
     if (!isoDate(r.baselineAsOf)) fail('baselineAsOf must be YYYY-MM-DD');
     const gap = daysBetween(r.asOf, r.baselineAsOf);
-    if (gap < 76 || gap > 106) fail('baselineAsOf must be about 90 days (76-106) before asOf');
+    if (r.baselineKind === 'peak' ? gap < 0 || r.baselineValue < r.value : gap < 76 || gap > 106)
+      fail(r.baselineKind === 'peak' ? 'peak baseline must be on or before asOf and >= value' : 'baselineAsOf must be about 90 days (76-106) before asOf');
   }
 }
 
@@ -131,7 +133,7 @@ export function weeklyChange(weeks, code) {
       if (old) ({ value: baselineValue, asOf: baselineAsOf } = old);
     }
     const ratio = baselineValue > 0 ? (r.value - baselineValue) / baselineValue : null;
-    return { source: r.source, url: r.url, metric: r.metric, value: r.value, asOf: r.asOf, baselineValue, baselineAsOf, ratio };
+    return { source: r.source, url: r.url, metric: r.metric, value: r.value, asOf: r.asOf, baselineValue, baselineAsOf, baselineKind: r.baselineKind ?? '90d', ratio };
   });
   const known = sources.filter(s => s.ratio != null);
   return {
@@ -172,7 +174,7 @@ export function buildExport(db, config, weeks = [], now = new Date(), social = [
   jobs.sort((a, b) => (a.chg ?? 0) - (b.chg ?? 0) || a.id.localeCompare(b.id));
   return { schemaVersion: 1, generatedAt: now.toISOString(),
     methodology: {
-      demand: 'Weekly manual entry of published figures (posting counts or indexes). Change = latest value vs the value about 90 days earlier, per source; occupation change is the mean across sources. Every figure links to where it was read.',
+      demand: 'Job postings now vs their peak (Indeed Hiring Lab US posting index per job category, peak since Feb 2020). Where a source has no peak, change vs about 90 days earlier. Occupation change is the mean across sources; every figure links to its source.',
       risk: 'Published Anthropic observed exposure for exact SOC6 .00 occupations; otherwise matched O*NET task penetration mean (50% coverage required). Optional normalized task imports use automation + half augmentation. Not replacement probability or evidence of causation.',
       statuses: { BOARDING: '>= +8%', 'ON TIME': '-7% to +7%', DELAYED: '-17% to -8%', 'FINAL CALL': '-29% to -18%', CANCELLED: '<= -30%' },
       sentiment: 'English keyword lexicon with local negation, bounded non-representative samples. No social text or identities exported. Does not change demand or risk.',
