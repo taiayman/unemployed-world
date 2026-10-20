@@ -421,16 +421,6 @@ function chart(job, st){
     '<text x="'+L+'" y="'+(H-6)+'" font-size="11">'+esc(points[0].date)+'</text>'+
     '<text x="'+(W-R)+'" y="'+(H-6)+'" text-anchor="end" font-size="11">'+esc(points[points.length-1].date)+'</text></svg>';
 }
-function events(job){
-  const out=[];
-  for(const f of (job.demand&&job.demand.sources)||[]) out.push(['POSTINGS',f.value+' · '+f.metric+' · as of '+f.asOf+(f.change==null?' · 90-day baseline still collecting':' · '+(f.change>0?'+':'')+f.change+'% vs '+f.baselineAsOf)]);
-  const so=job.social;
-  if(so) out.push(['SOCIAL',(so.score==null?'Too few opinion posts to score':'Net '+(so.score>0?'+':'')+so.score)+' · '+so.decline+' posts say shrinking, '+so.growth+' say growing, '+so.jobAds+' job ads, '+so.sampled+' posts read on '+so.platforms.map(x=>x.platform).join(' + ')+' (week of '+so.week+')']);
-  out.push(['COVERAGE',Math.round(job.exposure.taskCoverage*100)+'% of O*NET tasks matched to exposure evidence']);
-  for(const evidence of job.exposure.evidence||[]) out.push(['EVIDENCE',evidence.attribution||evidence.definition||evidence.version]);
-  out.push(['CAUTION','News and sentiment do not establish why hiring changed.']);
-  return out;
-}
 // Social verdict: share of opinion posts on X/LinkedIn that say the job is shrinking.
 function verdict(job){
   const so=job.social; if(!so||so.score==null) return null;
@@ -459,7 +449,6 @@ function renderPass(){
   '</div>'+
   '<div class="stub">'+
     '<div><div class="lab">Passenger</div><div class="val">YOU</div></div>'+
-    '<div><div class="lab">Evidence and coverage</div><ul class="events">'+events(job).map(e=>'<li><b>'+esc(e[0])+'</b>'+esc(e[1])+'</li>').join('')+'</ul></div>'+
     '<div class="share"><button class="btn" type="button" id="copy">Copy my status</button>'+
     '<input id="sharetext" readonly value="'+esc(shareText(job))+'" aria-label="Status text to share"><div class="copied" id="copied"></div></div>'+
     '<div class="barcode" aria-hidden="true"></div>'+
