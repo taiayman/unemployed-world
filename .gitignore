@@ -10,3 +10,6 @@ site/jobs.json
 *.sqlite*
 *.log
 coverage/
+
+.vercel
+.env*
