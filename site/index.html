@@ -244,8 +244,16 @@ const STATUS = [
   {key:"ONTIME", label:"ON TIME", meaning:"holding steady", color:"var(--s-ontime)"},
   {key:"BOARDING", label:"BOARDING", meaning:"demand rising", color:"var(--s-board)", blink:true}
 ];
-function status(chg){
-  if(chg==null) return UNKNOWN;
+// Until a 90-day demand trend exists, show the social verdict, else the AI-risk level.
+function status(chg, job){
+  if(chg==null){
+    const v=job&&verdict(job);
+    if(v){ const key={DYING:'CANCELLED',SINKING:'FINALCALL',SPLIT:'DELAYED',SAFE:'BOARDING'}[v.word];
+      return {key, label:v.word, meaning:v.pct+'% of social posts say shrinking', color:v.color, blink:v.word==='DYING'}; }
+    if(job&&job.ai!=null){ const a=job.ai, r=a>=80?['CANCELLED','VERY HIGH']:a>=60?['FINALCALL','HIGH RISK']:a>=35?['DELAYED','MED RISK']:['ONTIME','LOW RISK'];
+      const st=STATUS.find(x=>x.key===r[0]); return {key:r[0], label:r[1], meaning:'AI exposure '+a+'/100; demand trend after 90 days of data', color:st.color}; }
+    return UNKNOWN;
+  }
   if(chg<=-30) return STATUS[0];
   if(chg<=-18) return STATUS[1];
   if(chg<=-8) return STATUS[2];
@@ -269,7 +277,7 @@ function value(job, col){
   else if(col.k==="job") s = col.short ? job.short : job.name;
   else if(col.k==="chg") s = fmtChg(job.chg).padStart(col.n," ");
   else if(col.k==="ai") s = (job.ai==null?"--":String(job.ai)).padStart(col.n," ");
-  else s = status(job.chg).label;
+  else s = status(job.chg, job).label;
   return s.slice(0,col.n).padEnd(col.n," ");
 }
 
@@ -366,7 +374,7 @@ function build(){
 }
 function paintRow(i){
   const r = rowsEl.children[i]; if(!r) return;
-  const st = status(JOBS[i].chg);
+  const st = status(JOBS[i].chg, JOBS[i]);
   const g = r.querySelector('.grp.st');
   g.className = 'grp st st-'+st.key;
   const chgG = r.querySelector('.grp.chg');
@@ -431,14 +439,14 @@ function verdict(job){
   return {pct, word, color: pct>=55?'var(--s-cancel)':pct<=25?'var(--s-board)':'#b38600', so};
 }
 function riskWord(a){ if(a==null) return "Unknown"; return a>=80?"Very high":a>=60?"High":a>=35?"Medium":"Low"; }
-function shareText(job){ const v=verdict(job); if(v) return 'My job on unemployed.world: '+job.name+' is '+v.word+'. '+v.pct+'% of people posting about it on X and LinkedIn say it is shrinking. Check yours.'; return 'My job on unemployed.world: '+job.name+', '+status(job.chg).label+' ('+fmtChg(job.chg)+' demand). Check yours.'; }
+function shareText(job){ const v=verdict(job); if(v) return 'My job on unemployed.world: '+job.name+' is '+v.word+'. '+v.pct+'% of people posting about it on X and LinkedIn say it is shrinking. Check yours.'; return 'My job on unemployed.world: '+job.name+', '+status(job.chg, job).label+' ('+fmtChg(job.chg)+' demand). Check yours.'; }
 function renderPass(){
-  const job=JOBS[selected], st=status(job.chg), v=verdict(job);
+  const job=JOBS[selected], st=status(job.chg, job), v=verdict(job);
   const stampColor = st.key==="ONTIME" ? "var(--paper-ink)" : (st.key==="DELAYED" ? "#b38600" : st.color);
   document.getElementById('pass').innerHTML =
   '<div class="main">'+
     '<div class="ptop"><div><div class="lab">Boarding pass · Flight '+esc(job.code)+'</div><h2 class="dest">'+esc(job.name)+'</h2></div>'+
-    '<div class="stamp" style="color:'+(v&&job.chg==null?v.color:stampColor)+'">'+(v&&job.chg==null?v.word:st.label)+'</div></div>'+
+    '<div class="stamp" style="color:'+(job.chg==null?st.color:stampColor)+'">'+st.label+'</div></div>'+
     (v?'<div class="verdict" style="--vc:'+v.color+'"><div class="big">'+v.pct+'%</div><div><div class="lab">Social verdict · X + LinkedIn · week of '+esc(v.so.week)+'</div>'+
       '<p>of people posting an opinion about this job say it is <b>shrinking or being replaced by AI</b>. '+v.so.decline+' said shrinking, '+v.so.growth+' said growing, out of '+v.so.sampled+' posts read ('+v.so.jobAds+' job ads not counted).</p></div></div>':'')+
     '<div class="facts">'+
