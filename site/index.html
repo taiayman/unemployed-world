@@ -61,7 +61,6 @@ button,input{font:inherit}
 .btn.ghost[aria-pressed="true"]{border-color:var(--sign);color:var(--sign)}
 .hint{width:100%;color:var(--muted);font-size:14px;min-height:1.4em;margin:0}
 
-.legend .wrap{display:flex;flex-wrap:wrap;gap:8px 22px;padding-block:6px 14px}
 .lg{display:flex;align-items:baseline;gap:8px;font-size:14px;color:var(--muted)}
 .lg b{font-family:var(--mono);font-size:18px;color:var(--ink);font-variant-numeric:tabular-nums}
 .lg i{width:9px;height:9px;border-radius:50%;display:inline-block;align-self:center}
@@ -179,7 +178,6 @@ footer .wrap{padding-block:18px 28px;color:var(--muted);font-size:13px;display:f
   </div>
 </section>
 
-<section class="legend"><div class="wrap" id="legend"></div></section>
 
 <main class="wrap">
   <div class="board" id="board" role="listbox" aria-label="Job departures board">
@@ -398,16 +396,6 @@ function sweep(base){
   });
 }
 
-/* legend */
-function legend(){
-  const el = document.getElementById('legend'); el.innerHTML="";
-  [...STATUS.slice().reverse(),UNKNOWN].forEach(s=>{
-    const n = JOBS.filter(j=>status(j.chg).key===s.key).length;
-    const d=document.createElement('div'); d.className='lg';
-    d.innerHTML='<i style="background:'+s.color+'"></i><b>'+n+'</b><span class="n">'+s.label+'</span><span>'+s.meaning+'</span>';
-    el.appendChild(d);
-  });
-}
 
 /* boarding pass */
 function chart(job, st){
@@ -511,10 +499,10 @@ const PA=['Daily public API samples. A status is not proof of AI-caused job loss
 document.getElementById('marq').textContent = PA.join("      ✈      ");
 
 /* boot */
-build(); legend(); select(0,false);
+build(); select(0,false);
 if(!reduce) setTimeout(()=>sweep(0), 350);
 // Daily export only; no fabricated live drift.
-let rt, lastW=boardEl.clientWidth; const ro=new ResizeObserver(()=>{ clearTimeout(rt); rt=setTimeout(()=>{ const w=boardEl.clientWidth; if(Math.abs(w-lastW)<4) return; lastW=w; build(); legend(); }, 150); });
+let rt, lastW=boardEl.clientWidth; const ro=new ResizeObserver(()=>{ clearTimeout(rt); rt=setTimeout(()=>{ const w=boardEl.clientWidth; if(Math.abs(w-lastW)<4) return; lastW=w; build(); }, 150); });
 ro.observe(boardEl);
 })();
 </script>
