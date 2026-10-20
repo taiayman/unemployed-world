@@ -56,13 +56,13 @@ export function validateRow(r, week, where) {
   if (!isoDate(r.asOf)) fail('asOf must be YYYY-MM-DD');
   const age = daysBetween(week, r.asOf);
   if (age < -1 || age > 14) fail(`asOf ${r.asOf} is not within 14 days of week ${week}`);
-  if (r.baselineKind != null && r.baselineKind !== 'peak') fail('baselineKind may only be "peak"');
+  if (r.baselineKind != null && !['peak', 'since'].includes(r.baselineKind)) fail('baselineKind may only be "peak" or "since"');
   if (r.baselineValue != null || r.baselineAsOf != null) {
     if (!Number.isFinite(r.baselineValue) || r.baselineValue < 0) fail('baselineValue must be a number >= 0');
     if (!isoDate(r.baselineAsOf)) fail('baselineAsOf must be YYYY-MM-DD');
     const gap = daysBetween(r.asOf, r.baselineAsOf);
-    if (r.baselineKind === 'peak' ? gap < 0 || r.baselineValue < r.value : gap < 76 || gap > 106)
-      fail(r.baselineKind === 'peak' ? 'peak baseline must be on or before asOf and >= value' : 'baselineAsOf must be about 90 days (76-106) before asOf');
+    if (r.baselineKind === 'peak' ? gap < 0 || r.baselineValue < r.value : r.baselineKind === 'since' ? gap <= 0 : gap < 76 || gap > 106)
+      fail(r.baselineKind === 'peak' ? 'peak baseline must be on or before asOf and >= value' : r.baselineKind === 'since' ? 'baselineAsOf must be before asOf' : 'baselineAsOf must be about 90 days (76-106) before asOf');
   }
 }
 
@@ -157,14 +157,23 @@ export function boardNames(title, override) {
   return { name, short: words.join(' ').slice(0, 13) };
 }
 
-export function buildExport(db, config, weeks = [], now = new Date(), social = [], capability = [], displayNames = {}) {
+// Optional curated board (data/board.json): one row per posting category, with its own
+// name, plus the whole-market change the board compares every row against.
+export function boardMarket(board) {
+  const m = board?.market;
+  return m ? { ...m, change: Math.round(100 * (m.value - m.baselineValue) / m.baselineValue), since: board.since } : null;
+}
+
+export function buildExport(db, config, weeks = [], now = new Date(), social = [], capability = [], displayNames = {}, board = null) {
   const date = day(now);
   const jobs = [];
-  for (const code of new Set((weeks.at(-1)?.rows || []).map(r => r.onet))) {
+  const boardRows = board ? new Map(board.rows.map(r => [r.onet, r])) : null;
+  const codes = boardRows ? [...boardRows.keys()] : new Set((weeks.at(-1)?.rows || []).map(r => r.onet));
+  for (const code of codes) {
     const occupation = db.prepare('SELECT * FROM occupations WHERE code=?').get(code);
     if (!occupation) { console.warn(`Weekly data: unknown O*NET code ${code}, skipped`); continue; }
     const demand = weeklyChange(weeks, code), exposure = exposureScore(db, code);
-    const { name, short } = boardNames(occupation.title, displayNames[code]);
+    const { name, short } = boardNames(occupation.title, boardRows?.get(code)?.name ?? displayNames[code]);
     jobs.push({ id: code, code: `${code.slice(0, 2)} ${code.slice(3, 6)}`, name, short, title: occupation.title,
       chg: demand.change, ai: exposure.score, status: flightStatus(demand.change), demand, exposure, social: socialScore(social, code),
       capability: (capability.at(-1)?.rows || []).find(r => r.onet === code) ?? null,
@@ -174,7 +183,7 @@ export function buildExport(db, config, weeks = [], now = new Date(), social = [
   jobs.sort((a, b) => (a.chg ?? 0) - (b.chg ?? 0) || a.id.localeCompare(b.id));
   return { schemaVersion: 1, generatedAt: now.toISOString(),
     methodology: {
-      demand: 'Job postings now vs their peak (Indeed Hiring Lab US posting index per job category, peak since Feb 2020). Where a source has no peak, change vs about 90 days earlier. Occupation change is the mean across sources; every figure links to its source.',
+      demand: 'Job postings now vs 30 Nov 2022, when ChatGPT launched (Indeed Hiring Lab US posting index per job category). market is the same change for all US jobs; the board status compares each row with it. Every figure links to its source.',
       risk: 'Published Anthropic observed exposure for exact SOC6 .00 occupations; otherwise matched O*NET task penetration mean (50% coverage required). Optional normalized task imports use automation + half augmentation. Not replacement probability or evidence of causation.',
       statuses: { BOARDING: '>= +8%', 'ON TIME': '-7% to +7%', DELAYED: '-17% to -8%', 'FINAL CALL': '-29% to -18%', CANCELLED: '<= -30%' },
       sentiment: 'English keyword lexicon with local negation, bounded non-representative samples. No social text or identities exported. Does not change demand or risk.',
@@ -185,6 +194,7 @@ export function buildExport(db, config, weeks = [], now = new Date(), social = [
       postings: db.prepare('SELECT COUNT(*) total FROM postings').get().total,
       taxonomy: db.prepare('SELECT COUNT(*) total FROM occupations').get().total,
       exposureTasks: db.prepare('SELECT (SELECT COUNT(*) FROM exposure)+(SELECT COUNT(*) FROM task_penetration) total').get().total },
+    market: boardMarket(board),
     sources: db.prepare('SELECT source,status,count,detail FROM source_runs WHERE day=? ORDER BY source').all(date),
     jobs,
     news: db.prepare('SELECT source,title,url,published_at AS publishedAt,first_seen AS firstSeen FROM news WHERE last_seen>=? ORDER BY COALESCE(published_at,first_seen) DESC LIMIT 50').all(ago(14, now)),

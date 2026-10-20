@@ -142,7 +142,7 @@ footer .wrap{padding-block:18px 28px;color:var(--muted);font-size:13px;display:f
     <div class="heads" id="heads"></div>
     <div id="rows"></div>
     <div class="boardfoot">
-      <span>Hiring = job postings today vs their 2022 peak (Indeed) · Status = hiring trend and what people post on X and LinkedIn</span>
+      <span id="legendline">Hiring = job postings today vs Nov 2022, when ChatGPT launched (Indeed) · Status = compared with all US jobs, plus what people post on X and LinkedIn</span>
       <span class="sample">LOADING DAILY DATA</span>
     </div>
   </div>
@@ -175,6 +175,7 @@ try {
   return;
 }
 const JOBS = payload.jobs;
+if(payload.market) document.getElementById('legendline').textContent='Hiring = job postings today vs Nov 2022, when ChatGPT launched (Indeed). All US jobs: '+(payload.market.change>0?'+':'')+payload.market.change+'%. Status = each job compared with that, plus what people post on X and LinkedIn.';
 // Most-threatened first: the higher of the social verdict and the AI-exposure score.
 document.querySelector('.sample').textContent='UPDATED '+payload.generatedAt.slice(0,16).replace('T',' ')+' UTC';
 const ageHours=(Date.now()-Date.parse(payload.generatedAt))/3600000;
@@ -186,19 +187,21 @@ if(!JOBS.length) {
   return;
 }
 const UNKNOWN={key:'UNKNOWN',label:'NO DATA',meaning:'no hiring data yet',color:'var(--muted)'};
+const MARKET = payload.market ? payload.market.change : null;
 
-// One plain scale for every job, worst signal wins: hiring vs peak, and the X/LinkedIn mood.
+// Each job vs the whole job market since ChatGPT launched; the X/LinkedIn mood can only make it worse.
 const STATUS = [
-  {key:"BOARDING", label:"GROWING", meaning:"hiring is growing", color:"var(--s-board)"},
-  {key:"ONTIME", label:"STABLE", meaning:"hiring is holding steady", color:"var(--s-ontime)"},
-  {key:"DELAYED", label:"SLOWING", meaning:"hiring is slowing", color:"var(--s-delay)"},
-  {key:"FINALCALL", label:"SHRINKING", meaning:"hiring is shrinking", color:"var(--s-final)"},
-  {key:"CANCELLED", label:"DYING", meaning:"hiring has collapsed", color:"var(--s-cancel)", blink:true}
+  {key:"BOARDING", label:"GROWING", meaning:"more postings than before ChatGPT", color:"var(--s-board)"},
+  {key:"BOARDING", label:"STRONG", meaning:"falling much slower than the market", color:"var(--s-board)"},
+  {key:"ONTIME", label:"NORMAL", meaning:"moving with the market", color:"var(--s-ontime)"},
+  {key:"FINALCALL", label:"SHRINKING", meaning:"falling faster than the market", color:"var(--s-final)"},
+  {key:"CANCELLED", label:"DYING", meaning:"falling much faster than the market", color:"var(--s-cancel)", blink:true}
 ];
 function status(chg, job){
-  const fromHiring = chg==null ? -1 : chg<=-50 ? 4 : chg<=-30 ? 3 : chg<=-10 ? 2 : chg<5 ? 1 : 0;
-  const v=job&&verdict(job), fromSocial = v ? {DYING:4,SINKING:3,SPLIT:2,SAFE:1}[v.word] : -1;
-  const level=Math.max(fromHiring, fromSocial);
+  let level=-1;
+  if(chg!=null){ const d = MARKET==null ? chg : chg-MARKET; level = chg>0 ? 0 : d>=5 ? 1 : d>-5 ? 2 : d>-15 ? 3 : 4; }
+  const v=job&&verdict(job);
+  if(v) level=Math.max(level, {DYING:4,SINKING:3,SPLIT:2,SAFE:1}[v.word]);
   return level<0 ? UNKNOWN : STATUS[level];
 }
 const fmtChg = c => c==null ? "--" : ((c>0?"+":"")+c+"%");

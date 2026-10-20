@@ -13,6 +13,7 @@
   "socialDir": "data/social",
   "capabilityDir": "data/capability",
   "displayNames": "data/display-names.json",
+  "board": "data/board.json",
   "jobs": {
     "greenhouse": [],
     "lever": [],

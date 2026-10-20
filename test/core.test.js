@@ -213,3 +213,13 @@ test('peak baselines: change vs the stated peak, and a peak below the value is r
   assert.equal(weeklyChange([{ week: '2026-10-19', rows: [row] }], '15-1252.00').change, -67);
   assert.throws(() => validateRow({ ...row, baselineValue: 50 }, '2026-10-19', 'x'), /peak/);
 });
+
+test('curated board: one row per listed category with its own name, plus the market change', () => {
+  const db = openDb(':memory:'); taxonomy(db);
+  const row = { onet: '15-1252.00', source: 'Indeed', url: 'https://a.test', metric: 'since', value: 55, asOf: '2026-10-09', baselineValue: 100, baselineAsOf: '2022-11-30', baselineKind: 'since' };
+  validateRow(row, '2026-10-19', 'x');
+  const board = { since: '2022-11-30', market: { value: 71, baselineValue: 100 }, rows: [{ onet: '15-1252.00', name: 'SOFTWARE DEVELOPERS' }] };
+  const out = buildExport(db, config, [{ week: '2026-10-19', rows: [row] }], now, [], [], {}, board);
+  assert.equal(out.jobs.length, 1); assert.equal(out.jobs[0].name, 'SOFTWARE DEVELOPERS'); assert.equal(out.jobs[0].chg, -45);
+  assert.equal(out.market.change, -29); db.close();
+});

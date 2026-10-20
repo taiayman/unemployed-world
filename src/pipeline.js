@@ -58,6 +58,7 @@ export async function run({ config = loadConfig(), exportOnly = false } = {}) {
   const social = readWeekly(config.socialDir, validateSocialRow);
   const capability = config.capabilityDir ? readWeekly(config.capabilityDir, validateCapabilityRow) : [];
   const displayNames = config.displayNames && existsSync(config.displayNames) ? JSON.parse(readFileSync(config.displayNames, 'utf8')) : {};
+  const board = config.board && existsSync(config.board) ? JSON.parse(readFileSync(config.board, 'utf8')) : null;
   const db = openDb(config.database);
   const lockPath = `${config.database}.lock`;
   // Refuse simultaneous local writers as well as Actions concurrency.
@@ -76,7 +77,7 @@ export async function run({ config = loadConfig(), exportOnly = false } = {}) {
       await collectGroup(db, http, config, 'sentiment', sentimentSources(config.sentiment, http), ingestSentiment);
       prune(db, config.retentionDays);
     }
-    const output = buildExport(db, config, weeks, new Date(), social, capability, displayNames);
+    const output = buildExport(db, config, weeks, new Date(), social, capability, displayNames, board);
     await checkpoint();
     // An all-sources outage does not replace the last successful deployment.
     if (!exportOnly && succeeded === 0) throw new Error('No job source succeeded; preserved state but refused a new public export');
