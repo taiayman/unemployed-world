@@ -59,6 +59,8 @@ button,input{font:inherit}
 .btn{background:var(--sign);color:var(--sign-ink);border:0;padding:12px 16px;border-radius:4px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;cursor:pointer}
 .btn.ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}
 .btn.ghost[aria-pressed="true"]{border-color:var(--sign);color:var(--sign)}
+.hero{width:100%;font-family:var(--display);font-weight:800;font-size:clamp(20px,3.2vw,32px);line-height:1.15;margin:12px 0 2px;text-transform:uppercase}
+.hero:empty{display:none}.hero b{color:var(--s-cancel)}.hero small{display:block;font-family:var(--body);font-weight:400;font-size:13px;text-transform:none;color:var(--muted);margin-top:6px}
 .hint{width:100%;color:var(--muted);font-size:14px;min-height:1.4em;margin:0}
 
 .lg{display:flex;align-items:baseline;gap:8px;font-size:14px;color:var(--muted)}
@@ -174,6 +176,7 @@ footer .wrap{padding-block:18px 28px;color:var(--muted);font-size:13px;display:f
       <button class="btn" type="submit">Check flight</button>
     </form>
     <button class="btn ghost" id="sound" type="button" aria-pressed="false">Sound off</button>
+    <p class="hero" id="hero"></p>
     <p class="hint" id="hint" aria-live="polite">Tap any row to print its boarding pass.</p>
   </div>
 </section>
@@ -224,6 +227,16 @@ try {
   return;
 }
 const JOBS = payload.jobs;
+// Most-threatened first: the higher of the social verdict and the AI-exposure score.
+const doom = j => { const v=verdict(j); return Math.max(v?v.pct:0, j.ai||0); };
+JOBS.sort((a,b)=>doom(b)-doom(a));
+if(JOBS.length){
+  const scanned=JOBS.filter(j=>j.social&&j.social.score!=null), dec=scanned.reduce((n,j)=>n+j.social.decline,0), gro=scanned.reduce((n,j)=>n+j.social.growth,0);
+  const exposed=JOBS.filter(j=>(j.ai||0)>=35).length;
+  document.getElementById('hero').innerHTML=(dec+gro?'<b>'+Math.round(100*dec/(dec+gro))+'%</b> of people posting about their job say it is shrinking or getting replaced by AI. ':'')+
+    '<b>'+exposed+'</b> of '+JOBS.length+' jobs are already AI-exposed. Most hit right now: <b>'+esc(JOBS[0].name)+'</b>.'+
+    '<small>Social: X + LinkedIn posts read by hand'+(scanned[0]?', week of '+esc(scanned[0].social.week):'')+'. Exposure: Anthropic Economic Index observed AI usage, 35/100 or more.</small>';
+}
 document.querySelector('.sample').textContent='UPDATED '+payload.generatedAt.slice(0,16).replace('T',' ')+' UTC';
 const ageHours=(Date.now()-Date.parse(payload.generatedAt))/3600000;
 if(ageHours>48) document.querySelector('.sample').textContent+=' · STALE DATA';
@@ -250,8 +263,8 @@ function status(chg, job){
     const v=job&&verdict(job);
     if(v){ const key={DYING:'CANCELLED',SINKING:'FINALCALL',SPLIT:'DELAYED',SAFE:'BOARDING'}[v.word];
       return {key, label:v.word, meaning:v.pct+'% of social posts say shrinking', color:v.color, blink:v.word==='DYING'}; }
-    if(job&&job.ai!=null){ const a=job.ai, r=a>=80?['CANCELLED','VERY HIGH']:a>=60?['FINALCALL','HIGH RISK']:a>=35?['DELAYED','MED RISK']:['ONTIME','LOW RISK'];
-      const st=STATUS.find(x=>x.key===r[0]); return {key:r[0], label:r[1], meaning:'AI exposure '+a+'/100; demand trend after 90 days of data', color:st.color}; }
+    if(job&&job.ai!=null){ const a=job.ai, r=a>=80?['CANCELLED','RED ZONE']:a>=60?['FINALCALL','DANGER']:a>=35?['DELAYED','EXPOSED']:['ONTIME','HOLDING'];
+      const st=STATUS.find(x=>x.key===r[0]); return {key:r[0], label:r[1], meaning:'AI exposure '+a+'/100', color:st.color, blink:a>=60}; }
     return UNKNOWN;
   }
   if(chg<=-30) return STATUS[0];
@@ -428,7 +441,7 @@ function verdict(job){
   const word=pct>=75?'DYING':pct>=55?'SINKING':pct<=25?'SAFE':'SPLIT';
   return {pct, word, color: pct>=55?'var(--s-cancel)':pct<=25?'var(--s-board)':'#b38600', so};
 }
-function riskWord(a){ if(a==null) return "Unknown"; return a>=80?"Very high":a>=60?"High":a>=35?"Medium":"Low"; }
+function riskWord(a){ if(a==null) return "Unknown"; return a>=80?"Red zone":a>=60?"Danger":a>=35?"Exposed":"Holding, for now"; }
 function shareText(job){ const v=verdict(job); if(v) return 'My job on unemployed.world: '+job.name+' is '+v.word+'. '+v.pct+'% of people posting about it on X and LinkedIn say it is shrinking. Check yours.'; return 'My job on unemployed.world: '+job.name+', '+status(job.chg, job).label+' ('+fmtChg(job.chg)+' demand). Check yours.'; }
 function renderPass(){
   const job=JOBS[selected], st=status(job.chg, job), v=verdict(job);
