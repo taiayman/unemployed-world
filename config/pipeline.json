@@ -9,19 +9,8 @@
     "economicIndexRevision": "4e5f69fab13a9c3f7d0dcc31a6f893a9818738f6"
   },
   "http": { "minIntervalMs": 3500, "timeoutMs": 25000, "maxBytes": 12000000 },
-  "llm": {
-    "model": "deepseek/deepseek-v4.1-flash",
-    "monthlyUsd": 5,
-    "batchSize": 4,
-    "maxJobsPerRun": 96,
-    "requestTimeoutMs": 120000,
-    "descriptionChars": 2400,
-    "outputTokensPerJob": 240,
-    "maxPromptUsdPerMillion": 0.2,
-    "maxCompletionUsdPerMillion": 0.5,
-    "maxAttemptsPerHash": 3,
-    "promptVersion": "onet-tags-v1"
-  },
+  "weeklyDir": "data/weekly",
+  "socialDir": "data/social",
   "jobs": {
     "greenhouse": [],
     "lever": [],
@@ -57,6 +46,5 @@
       "sampleSeconds": 30,
       "maxMessages": 1500
     }
-  },
-  "metrics": { "minBaselineCount": 5, "minMatchedDays": 6, "maxSourceShareShift": 0.2 }
+  }
 }

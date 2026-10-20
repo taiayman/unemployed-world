@@ -1,3 +1,5 @@
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { ago, day, hash } from './util.js';
 
 export function flightStatus(change) {
@@ -39,132 +41,120 @@ export function exposureScore(db, code) {
   };
 }
 
-// Compare 7-day posting-observation averages ending today and 90 days ago.
-// Only same-configuration source-days successful in BOTH windows contribute.
-// Missing pages and outages are never zeros; changes to the source mix block
-// an aggregate comparison instead of manufacturing a hiring collapse.
-export function demandChange(db, postingIds, config, now = new Date()) {
-  const result = { change: null, state: 'collecting_history', baseline: null, current: null, matchedDays: 0, sources: [] };
-  const currentDays = Array.from({ length: 7 }, (_, i) => ago(6 - i, now));
-  const baselineDays = Array.from({ length: 7 }, (_, i) => ago(96 - i, now));
-  const runs = db.prepare('SELECT * FROM source_runs WHERE day>=? AND day<=?').all(baselineDays[0], day(now));
-  const byKey = new Map(runs.map(r => [`${r.day}/${r.source}`, r]));
-  const sources = [...new Set(runs.filter(r => currentDays.includes(r.day) && r.source.startsWith('jobs:')).map(r => r.source))].sort();
-  const paired = [];
-  for (let i = 0; i < 7; i++) {
-    const common = sources.filter(source => {
-      const a = byKey.get(`${currentDays[i]}/${source}`), b = byKey.get(`${baselineDays[i]}/${source}`);
-      return a?.status === 'ok' && b?.status === 'ok' && a.config_hash === b.config_hash;
-    });
-    if (common.length) paired.push({ current: currentDays[i], baseline: baselineDays[i], sources: common });
+const daysBetween = (a, b) => (Date.parse(a) - Date.parse(b)) / 86400000;
+const isoDate = v => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v) && !Number.isNaN(Date.parse(v));
+
+// Manual weekly entries live in data/weekly/YYYY-MM-DD.jsonl, one gathered figure
+// per line. A bad row throws so a typo never reaches the public export.
+export function validateRow(r, week, where) {
+  const fail = why => { throw new Error(`${where}: ${why}`); };
+  if (!r || typeof r !== 'object') fail('not an object');
+  if (!/^\d{2}-\d{4}\.\d{2}$/.test(r.onet)) fail('onet must look like 15-1252.00');
+  for (const k of ['source', 'metric']) if (typeof r[k] !== 'string' || !r[k].trim() || r[k].length > 120) fail(`bad ${k}`);
+  if (typeof r.url !== 'string' || !/^https:\/\/\S+$/.test(r.url)) fail('url must be https');
+  if (!Number.isFinite(r.value) || r.value < 0) fail('value must be a number >= 0');
+  if (!isoDate(r.asOf)) fail('asOf must be YYYY-MM-DD');
+  const age = daysBetween(week, r.asOf);
+  if (age < -1 || age > 14) fail(`asOf ${r.asOf} is not within 14 days of week ${week}`);
+  if (r.baselineValue != null || r.baselineAsOf != null) {
+    if (!Number.isFinite(r.baselineValue) || r.baselineValue < 0) fail('baselineValue must be a number >= 0');
+    if (!isoDate(r.baselineAsOf)) fail('baselineAsOf must be YYYY-MM-DD');
+    const gap = daysBetween(r.asOf, r.baselineAsOf);
+    if (gap < 76 || gap > 106) fail('baselineAsOf must be about 90 days (76-106) before asOf');
   }
-  result.matchedDays = paired.length;
-  if (paired.length < config.minMatchedDays) return result;
-  const wanted = new Set(postingIds);
-  const observations = db.prepare('SELECT day,source,posting_id FROM observations WHERE (day BETWEEN ? AND ?) OR (day BETWEEN ? AND ?)')
-    .all(currentDays[0], currentDays[6], baselineDays[0], baselineDays[6]);
-  const sourceTotals = new Map();
-  for (const r of observations) {
-    const key = `${r.day}/jobs:${r.source}`;
-    if (!sourceTotals.has(key)) sourceTotals.set(key, new Set());
-    sourceTotals.get(key).add(r.posting_id);
-  }
-  // A large shift in market-wide source shares is evidence of sampling drift.
-  const totals = { current: new Map(), baseline: new Map() };
-  for (const p of paired) for (const side of ['current', 'baseline']) for (const s of p.sources) totals[side].set(s, (totals[side].get(s) || 0) + (sourceTotals.get(`${p[side]}/${s}`)?.size || 0));
-  const sums = Object.fromEntries(Object.entries(totals).map(([k, m]) => [k, [...m.values()].reduce((a, b) => a + b, 0)]));
-  if (!sums.baseline) { result.state = 'insufficient_baseline'; return result; }
-  const allSources = [...new Set(paired.flatMap(p => p.sources))];
-  if (allSources.some(s => Math.abs((totals.current.get(s) || 0) / (sums.current || 1) - (totals.baseline.get(s) || 0) / (sums.baseline || 1)) > config.maxSourceShareShift)) {
-    result.state = 'source_mix_changed'; return result;
-  }
-  let current = 0, baseline = 0;
-  const points = [];
-  for (const pair of paired) {
-    const values = {};
-    for (const side of ['current', 'baseline']) {
-      const ids = new Set(observations.filter(o => o.day === pair[side] && pair.sources.includes(`jobs:${o.source}`) && wanted.has(o.posting_id)).map(o => o.posting_id));
-      values[side] = ids.size;
-    }
-    current += values.current; baseline += values.baseline;
-    points.push({ date: pair.current, count: values.current, baselineDate: pair.baseline, baselineCount: values.baseline });
-  }
-  result.current = Math.round(current / paired.length * 100) / 100;
-  result.baseline = Math.round(baseline / paired.length * 100) / 100;
-  result.sources = allSources.map(s => s.replace(/^jobs:/, ''));
-  result.points = points;
-  if (baseline / paired.length < config.minBaselineCount) { result.state = 'insufficient_baseline'; return result; }
-  result.change = Math.round((current - baseline) / baseline * 100);
-  result.state = 'measured';
-  return result;
 }
 
-export function buildExport(db, config, now = new Date()) {
-  const date = day(now);
-  const tagged = db.prepare(`SELECT p.*,t.result FROM postings p JOIN tags t ON p.content_hash=t.content_hash
-    AND t.version=? AND t.model=? WHERE p.last_seen>=?`).all(config.llm.promptVersion, config.llm.model, ago(200, now));
-  const groups = new Map();
-  for (const p of tagged) {
-    const tag = JSON.parse(p.result);
-    if (!tag.onet || tag.confidence < 0.6) continue;
-    if (!groups.has(tag.onet)) groups.set(tag.onet, []);
-    groups.get(tag.onet).push({ ...p, tag });
-  }
-  const jobs = [];
-  const allObservations = db.prepare('SELECT * FROM observations WHERE day>=?').all(ago(96, now));
-  const successfulRuns = new Set(db.prepare("SELECT day,source FROM source_runs WHERE status='ok' AND day>=?").all(ago(96, now)).map(r => `${r.day}/${r.source}`));
-  // Index once, rather than scanning 97 days of observations for every row
-  // and chart point. This keeps a 210-day daily pipeline cheap to export.
-  const occupationForPosting = new Map([...groups].flatMap(([code, posts]) => posts.map(p => [p.id, code])));
-  const historyIndex = new Map();
-  for (const observation of allObservations) {
-    const code = occupationForPosting.get(observation.posting_id);
-    if (!code) continue;
-    const key = `${code}/${observation.day}/${observation.source}`;
-    if (!historyIndex.has(key)) historyIndex.set(key, new Set());
-    historyIndex.get(key).add(observation.posting_id);
-  }
-  const todayPanel = [...new Set(allObservations.filter(o => o.day === date).map(o => o.source))];
-  for (const [code, posts] of groups) {
-    const occupation = db.prepare('SELECT * FROM occupations WHERE code=?').get(code);
-    if (!occupation) continue;
-    const demand = demandChange(db, posts.map(p => p.id), config.metrics, now);
-    const exposure = exposureScore(db, code);
-    const skills = new Map();
-    for (const p of posts.filter(p => p.last_seen >= ago(7, now))) for (const s of p.tag.skills) skills.set(s, (skills.get(s) || 0) + 1);
-    const panel = demand.sources.length ? demand.sources : todayPanel;
-    const history = Array.from({ length: 97 }, (_, i) => {
-      const d = ago(96 - i, now);
-      const complete = panel.length > 0 && panel.every(s => successfulRuns.has(`${d}/jobs:${s}`));
-      const ids = new Set();
-      if (complete) for (const s of panel) for (const id of historyIndex.get(`${code}/${d}/${s}`) || []) ids.add(id);
-      return { date: d, count: complete ? ids.size : null };
+export function readWeekly(dir, validate = validateRow) {
+  if (!existsSync(dir)) return [];
+  return readdirSync(dir).filter(f => /^\d{4}-\d{2}-\d{2}\.jsonl$/.test(f)).sort().map(file => {
+    const week = file.slice(0, 10), rows = [];
+    readFileSync(join(dir, file), 'utf8').split('\n').forEach((line, i) => {
+      if (!line.trim()) return;
+      let row;
+      try { row = JSON.parse(line); } catch { throw new Error(`${file}:${i + 1}: not valid JSON`); }
+      validate(row, week, `${file}:${i + 1}`);
+      rows.push(row);
     });
-    jobs.push({ id: code, code: `${code.slice(0, 2)} ${code.slice(3, 6)}`, name: occupation.title.toUpperCase(), short: occupation.title.toUpperCase().slice(0, 13),
-      chg: demand.change, ai: exposure.score, status: flightStatus(demand.change), demand, exposure,
-      activeSample: posts.filter(p => p.last_seen >= ago(7, now)).length,
-      skills: [...skills].sort((a, b) => b[1] - a[1]).slice(0, 12).map(([s]) => s),
-      tags: { seniority: [...new Set(posts.map(p => p.tag.seniority))], remote: [...new Set(posts.map(p => p.tag.remote))] },
-      evidence: [{ title: 'O*NET occupation and tasks', url: JSON.parse(occupation.provenance).url }],
-      history, historySources: panel });
+    return { week, rows };
+  });
+}
+
+// Manual social scan: posts read per occupation and platform, each counted as a
+// job ad, "decline" (says the job is shrinking or being replaced), "growth"
+// (says it is safe or growing) or neither.
+export function validateSocialRow(r, week, where) {
+  const fail = why => { throw new Error(`${where}: ${why}`); };
+  if (!r || typeof r !== 'object') fail('not an object');
+  if (!/^\d{2}-\d{4}\.\d{2}$/.test(r.onet)) fail('onet must look like 15-1252.00');
+  for (const k of ['platform', 'query']) if (typeof r[k] !== 'string' || !r[k].trim() || r[k].length > 300) fail(`bad ${k}`);
+  for (const k of ['sampled', 'jobAds', 'decline', 'growth']) if (!Number.isInteger(r[k]) || r[k] < 0) fail(`${k} must be an integer >= 0`);
+  if (r.jobAds + r.decline + r.growth > r.sampled) fail('jobAds + decline + growth exceed sampled');
+  if (!isoDate(r.asOf)) fail('asOf must be YYYY-MM-DD');
+  const age = daysBetween(week, r.asOf);
+  if (age < -7 || age > 14) fail(`asOf ${r.asOf} is not within the week ${week}`);
+}
+
+// Net social score = (growth - decline) / (growth + decline) x 100 across platforms;
+// null below 3 opinion posts. Job ads are reported but not scored (many are bots).
+export function socialScore(social, code) {
+  const rows = (social.at(-1)?.rows || []).filter(r => r.onet === code);
+  if (!rows.length) return null;
+  const sum = k => rows.reduce((n, r) => n + r[k], 0);
+  const decline = sum('decline'), growth = sum('growth'), opinions = decline + growth;
+  return { score: opinions >= 3 ? Math.round(100 * (growth - decline) / opinions) : null,
+    decline, growth, jobAds: sum('jobAds'), sampled: sum('sampled'), week: social.at(-1).week,
+    platforms: rows.map(({ platform, query, sampled, jobAds, decline, growth, asOf }) => ({ platform, query, sampled, jobAds, decline, growth, asOf })) };
+}
+
+// Per source: latest value vs its stated ~90-day baseline, or vs the same
+// source+metric entered ~13 weeks earlier. Occupation change = mean across sources.
+export function weeklyChange(weeks, code) {
+  const latest = weeks.at(-1);
+  const earlier = weeks.flatMap(w => w.rows);
+  const sources = (latest?.rows || []).filter(r => r.onet === code).map(r => {
+    let baselineValue = r.baselineValue ?? null, baselineAsOf = r.baselineAsOf ?? null;
+    if (baselineValue == null) {
+      const old = earlier.find(o => o.onet === code && o.source === r.source && o.metric === r.metric && Math.abs(daysBetween(r.asOf, o.asOf) - 91) <= 15);
+      if (old) ({ value: baselineValue, asOf: baselineAsOf } = old);
+    }
+    const ratio = baselineValue > 0 ? (r.value - baselineValue) / baselineValue : null;
+    return { source: r.source, url: r.url, metric: r.metric, value: r.value, asOf: r.asOf, baselineValue, baselineAsOf, ratio };
+  });
+  const known = sources.filter(s => s.ratio != null);
+  return {
+    change: known.length ? Math.round(100 * known.reduce((sum, s) => sum + s.ratio, 0) / known.length) : null,
+    state: known.length ? 'measured' : sources.length ? 'collecting_history' : 'no_data',
+    week: latest?.week ?? null,
+    sources: sources.map(({ ratio, ...s }) => ({ ...s, change: ratio == null ? null : Math.round(100 * ratio) }))
+  };
+}
+
+export function buildExport(db, config, weeks = [], now = new Date(), social = []) {
+  const date = day(now);
+  const jobs = [];
+  for (const code of new Set((weeks.at(-1)?.rows || []).map(r => r.onet))) {
+    const occupation = db.prepare('SELECT * FROM occupations WHERE code=?').get(code);
+    if (!occupation) { console.warn(`Weekly data: unknown O*NET code ${code}, skipped`); continue; }
+    const demand = weeklyChange(weeks, code), exposure = exposureScore(db, code);
+    const name = occupation.title.toUpperCase();
+    jobs.push({ id: code, code: `${code.slice(0, 2)} ${code.slice(3, 6)}`, name, short: name.slice(0, 13),
+      chg: demand.change, ai: exposure.score, status: flightStatus(demand.change), demand, exposure, social: socialScore(social, code),
+      evidence: [{ title: 'O*NET occupation and tasks', url: JSON.parse(occupation.provenance).url }, ...demand.sources.map(s => ({ title: s.source, url: s.url }))],
+      history: [] });
   }
   jobs.sort((a, b) => (a.chg ?? 0) - (b.chg ?? 0) || a.id.localeCompare(b.id));
-  const counts = db.prepare('SELECT COUNT(*) total FROM postings').get();
-  const taggedCount = db.prepare('SELECT COUNT(*) total FROM postings p WHERE EXISTS(SELECT 1 FROM tags t WHERE t.content_hash=p.content_hash AND t.version=? AND t.model=?)').get(config.llm.promptVersion, config.llm.model).total;
-  const month = date.slice(0, 7);
-  const budget = db.prepare('SELECT COALESCE(SUM(reserved_micros),0) reserved,COALESCE(SUM(actual_micros),0) reported FROM budget WHERE month=?').get(month);
-  return { schemaVersion: 1, generatedAt: now.toISOString(),
+  return { schemaVersion: 2, generatedAt: now.toISOString(),
     methodology: {
-      demand: 'Percent change in average daily unique observed postings, 7-day windows 90 days apart; matched source/configuration/day pairs only. Bounded samples, not the whole job market.',
+      demand: 'Weekly manual entry of published figures (posting counts or indexes). Change = latest value vs the value about 90 days earlier, per source; occupation change is the mean across sources. Every figure links to where it was read.',
       risk: 'Published Anthropic observed exposure for exact SOC6 .00 occupations; otherwise matched O*NET task penetration mean (50% coverage required). Optional normalized task imports use automation + half augmentation. Not replacement probability or evidence of causation.',
       statuses: { BOARDING: '>= +8%', 'ON TIME': '-7% to +7%', DELAYED: '-17% to -8%', 'FINAL CALL': '-29% to -18%', CANCELLED: '<= -30%' },
       sentiment: 'English keyword lexicon with local negation, bounded non-representative samples. No social text or identities exported. Does not change demand or risk.',
+      social: 'Weekly manual read of recent X/LinkedIn posts per occupation. Each post is counted as a job ad, decline (job shrinking or replaced), growth (job safe or growing) or neither. Score = (growth - decline) / (growth + decline) x 100, null below 3 opinion posts. Small, non-representative samples; shown separately and never mixed into demand or risk.',
       news: 'Lab feed entries, model popularity and research papers are context, not verified release events or causes of hiring changes.' },
-    coverage: { postings: counts.total, taggedPostings: taggedCount, untaggedPostings: counts.total - taggedCount,
+    coverage: { occupations: jobs.length, week: weeks.at(-1)?.week ?? null,
+      postings: db.prepare('SELECT COUNT(*) total FROM postings').get().total,
       taxonomy: db.prepare('SELECT COUNT(*) total FROM occupations').get().total,
       exposureTasks: db.prepare('SELECT (SELECT COUNT(*) FROM exposure)+(SELECT COUNT(*) FROM task_penetration) total').get().total },
-    budget: { month, capUsd: config.llm.monthlyUsd, reservedUsd: budget.reserved / 1000000, reportedUsd: budget.reported / 1000000,
-      basis: 'Conservative reservations are never refunded, including failed calls. Provider-side dedicated-key limit is also required.' },
     sources: db.prepare('SELECT source,status,count,detail FROM source_runs WHERE day=? ORDER BY source').all(date),
     jobs,
     news: db.prepare('SELECT source,title,url,published_at AS publishedAt,first_seen AS firstSeen FROM news WHERE last_seen>=? ORDER BY COALESCE(published_at,first_seen) DESC LIMIT 50').all(ago(14, now)),

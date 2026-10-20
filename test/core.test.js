@@ -1,11 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, mkdtempSync, writeFileSync, rmSync } from 'node:fs';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
 import vm from 'node:vm';
-import { openDb, ingestPosting, sourceRun, prune } from '../src/db.js';
-import { ago, hash, canonicalUrl } from '../src/util.js';
-import { demandChange, flightStatus, exposureScore, buildExport } from '../src/metrics.js';
-import { reserveBudget, validateTags, tagNewPostings } from '../src/tagger.js';
+import { openDb, ingestPosting, prune } from '../src/db.js';
+import { canonicalUrl } from '../src/util.js';
+import { flightStatus, exposureScore, buildExport, readWeekly, weeklyChange, socialScore, validateSocialRow } from '../src/metrics.js';
 import { importOnet, importEconomicIndex } from '../scripts/import-exposure.js';
 import { importPublishedReference } from '../src/reference.js';
 import { Http } from '../src/http.js';
@@ -25,13 +26,7 @@ function taxonomy(db) {
     { 'O*NET-SOC Code': '15-1252.00', 'Task ID': '2', Task: 'Discuss requirements.' }
   ], onetProvenance);
 }
-function tag(db, id) {
-  const p = db.prepare('SELECT * FROM postings WHERE id=?').get(id);
-  const t = { id: p.content_hash, skills: ['JavaScript'], seniority: 'mid', remote: 'remote', onet: '15-1252.00', confidence: 0.9 };
-  db.prepare('INSERT OR IGNORE INTO tags VALUES(?,?,?,?,?)').run(p.content_hash, config.llm.promptVersion, config.llm.model, JSON.stringify(t), now.toISOString());
-}
-
-test('dedupe cross-source by normalized tuple, URL, and native id before tagging', () => {
+test('dedupe cross-source by normalized tuple, URL, and native id ', () => {
   const db = openDb(':memory:');
   ingestPosting(db, 'lever:example', posting, '2026-10-18');
   ingestPosting(db, 'greenhouse:example', { ...posting, id: 'other', url: 'https://another.test/1', title: ' SOFTWARE  developer ', description: 'Syndicated variation' }, '2026-10-18');
@@ -46,121 +41,8 @@ test('URL tracking parameters do not defeat deduplication', () => {
   assert.equal(canonicalUrl('https://example.com/a?utm_source=x&job=1#foo'), 'https://example.com/a?job=1');
 });
 
-test('UTC monthly budget is atomic, conservative and rolls over by month', () => {
-  const db = openDb(':memory:');
-  assert.ok(reserveBudget(db, { monthlyUsd: 0.001 }, 800, now));
-  assert.equal(reserveBudget(db, { monthlyUsd: 0.001 }, 201, now), null);
-  assert.ok(reserveBudget(db, { monthlyUsd: 0.001 }, 200, now));
-  assert.ok(reserveBudget(db, { monthlyUsd: 0.001 }, 1000, new Date('2026-11-01T00:00:00Z')));
-  assert.throws(() => reserveBudget(db, { monthlyUsd: -1 }, 1, now));
-  db.close();
-});
-
-test('tag validation rejects invented occupations, duplicates and malformed skills', () => {
-  const jobs = [{ content_hash: 'h' }], allowed = new Map([['h', new Set(['15-1252.00'])]]);
-  const t = { id: 'h', skills: ['JS'], seniority: 'mid', remote: 'remote', onet: '15-1252.00', confidence: 0.9 };
-  assert.deepEqual(validateTags({ jobs: [t] }, jobs, allowed), [t]);
-  assert.throws(() => validateTags({ jobs: [{ ...t, onet: 'made-up' }] }, jobs, allowed));
-  assert.throws(() => validateTags({ jobs: [{ ...t, skills: ['<script>'] }] }, jobs, allowed));
-  assert.throws(() => validateTags({ jobs: [t, t] }, jobs, allowed));
-});
-
-test('paid call happens only after a persisted reservation; cache avoids all repeat calls', async () => {
-  const db = openDb(':memory:'); taxonomy(db); ingestPosting(db, 'test', posting);
-  const oldKey = process.env.OPENROUTER_API_KEY, oldAck = process.env.OPENROUTER_BILLING_ACK;
-  process.env.OPENROUTER_API_KEY = 'fixture'; process.env.OPENROUTER_BILLING_ACK = 'dedicated-key-monthly-limit-configured';
-  let persisted = false, calls = 0;
-  const http = { json: async (url, options) => {
-    calls++;
-    if (url.endsWith('/models')) return { data: [{ id: config.llm.model, pricing: { prompt: '0.00000006', completion: '0.00000014' }, context_length: 100000 }] };
-    if (url.endsWith('/key')) return { data: { limit: 5, limit_reset: 'monthly', limit_remaining: 5 } };
-    assert.ok(persisted);
-    const request = JSON.parse(options.body);
-    assert.equal(request.response_format.type, 'json_schema');
-    assert.equal(request.response_format.json_schema.strict, true);
-    const input = JSON.parse(request.messages[1].content);
-    assert.equal(input[0].id, 'j0');
-    assert.equal(request.response_format.json_schema.schema.properties.jobs.minItems, input.length);
-    return { choices: [{ finish_reason: 'stop', message: { content: JSON.stringify({ jobs: input.map(j => ({ id: j.id, skills: ['JavaScript'], seniority: 'mid', remote: 'remote', onet: j.onet_candidates[0]?.code || null, confidence: 0.9 })) }) } }], usage: { cost: 0.0001 } };
-  } };
-  try {
-    const options = { allowPaid: true, checkpoint: async () => { assert.ok(db.prepare('SELECT count(*) n FROM budget').get().n > 0); persisted = true; } };
-    assert.equal((await tagNewPostings(db, http, config.llm, options)).tagged, 1);
-    assert.equal((await tagNewPostings(db, http, config.llm, options)).state, 'nothing_new');
-    assert.equal(calls, 3);
-  } finally {
-    if (oldKey == null) delete process.env.OPENROUTER_API_KEY; else process.env.OPENROUTER_API_KEY = oldKey;
-    if (oldAck == null) delete process.env.OPENROUTER_BILLING_ACK; else process.env.OPENROUTER_BILLING_ACK = oldAck;
-    db.close();
-  }
-});
-
-test('failed persistence prevents the paid request', async () => {
-  const db = openDb(':memory:'); taxonomy(db); ingestPosting(db, 'test', posting);
-  const oldKey = process.env.OPENROUTER_API_KEY, oldAck = process.env.OPENROUTER_BILLING_ACK;
-  process.env.OPENROUTER_API_KEY = 'fixture'; process.env.OPENROUTER_BILLING_ACK = 'dedicated-key-monthly-limit-configured';
-  let paid = 0;
-  try {
-    await assert.rejects(tagNewPostings(db, { json: async u => {
-      if (u.endsWith('/key')) return { data: { limit: 5, limit_reset: 'monthly' } };
-      if (!u.endsWith('/models')) paid++;
-      return { data: [{ id: config.llm.model, pricing: { prompt: '0', completion: '0' } }] };
-    } }, config.llm, { allowPaid: true, checkpoint: async () => { throw new Error('push failed'); } }), /push failed/);
-    assert.equal(paid, 0);
-  } finally {
-    if (oldKey == null) delete process.env.OPENROUTER_API_KEY; else process.env.OPENROUTER_API_KEY = oldKey;
-    if (oldAck == null) delete process.env.OPENROUTER_BILLING_ACK; else process.env.OPENROUTER_BILLING_ACK = oldAck;
-    db.close();
-  }
-});
-
 test('status boundaries match the supplied UI', () => {
   assert.deepEqual([null, -30, -29, -18, -17, -8, -7, 7, 8].map(flightStatus), [null, 'CANCELLED', 'FINAL CALL', 'FINAL CALL', 'DELAYED', 'DELAYED', 'ON TIME', 'ON TIME', 'BOARDING']);
-});
-
-function demandFixture(db, { baseline = 10, current = 15 } = {}) {
-  const ids = new Set();
-  for (let i = 0; i < 7; i++) for (const [daysAgo, count] of [[96 - i, baseline], [6 - i, current]]) {
-    const d = ago(daysAgo, now);
-    sourceRun(db, d, 'jobs:test', 'ok', count, null, { version: 1 });
-    for (let j = 0; j < count; j++) ingestPosting(db, 'test', { ...posting, id: `p${j}`, company: `Employer ${j}`, url: `https://example.test/${j}` }, d);
-  }
-  for (const p of db.prepare('SELECT id FROM postings').all()) ids.add(p.id);
-  return [...ids];
-}
-
-test('90-day demand uses matched windows, dedupes observations and computes 50%', () => {
-  const db = openDb(':memory:');
-  const ids = demandFixture(db);
-  const metric = demandChange(db, ids, config.metrics, now);
-  assert.equal(metric.change, 50); assert.equal(metric.baseline, 10); assert.equal(metric.current, 15);
-  assert.equal(metric.matchedDays, 7);
-  db.close();
-});
-
-test('cold start, zero baseline and missing days never turn into invented demand', () => {
-  const db = openDb(':memory:');
-  assert.equal(demandChange(db, [], config.metrics, now).change, null);
-  const ids = demandFixture(db, { baseline: 0 });
-  assert.equal(demandChange(db, ids, config.metrics, now).state, 'insufficient_baseline');
-  db.prepare("UPDATE source_runs SET status='error' WHERE day IN (?,?)").run(ago(1, now), ago(2, now));
-  assert.equal(demandChange(db, ids, config.metrics, now).state, 'collecting_history');
-  db.close();
-});
-
-test('source configuration changes invalidate a baseline', () => {
-  const db = openDb(':memory:'); const ids = demandFixture(db);
-  db.prepare('UPDATE source_runs SET config_hash=? WHERE day>=?').run('changed', ago(6, now));
-  assert.equal(demandChange(db, ids, config.metrics, now).change, null); db.close();
-});
-
-test('large source composition shifts suppress aggregate demand', () => {
-  const db = openDb(':memory:'); const ids = demandFixture(db, { baseline: 10, current: 1 });
-  for (let i = 0; i < 7; i++) for (const [daysAgo, count] of [[96 - i, 1], [6 - i, 10]]) {
-    sourceRun(db, ago(daysAgo, now), 'jobs:other', 'ok', count, null, {});
-    for (let j = 0; j < count; j++) ingestPosting(db, 'other', { ...posting, id: `x${j}`, company: `Other ${j}`, url: `https://other.test/${j}` }, ago(daysAgo, now));
-  }
-  assert.equal(demandChange(db, ids, config.metrics, now).state, 'source_mix_changed'); db.close();
 });
 
 test('exposure is null without data, and a measured proxy with coverage', () => {
@@ -260,27 +142,35 @@ test('collector isolates failed sources, and reruns do not fetch successes twice
   assert.equal(calls, 1); db.close();
 });
 
-test('export has no invented cold-start metrics, listings, credentials or social text', () => {
-  const db = openDb(':memory:'); taxonomy(db); const ids = demandFixture(db);
-  for (const id of ids) tag(db, id);
-  const out = buildExport(db, config, now);
-  assert.equal(out.jobs[0].chg, 50); assert.equal(out.jobs[0].status, 'BOARDING');
-  assert.equal(out.jobs[0].ai, null);
-  assert.equal(out.jobs[0].history.length, 97);
-  assert.equal(out.jobs[0].history.filter(p => p.count == null).length, 83);
-  assert.ok(!JSON.stringify(out).includes(posting.description));
-  assert.ok(!JSON.stringify(out).includes(posting.url));
-  assert.equal(buildExport(openDb(':memory:'), config, now).jobs.length, 0); db.close();
+test('weekly manual data: stated baseline, ~13-week lookup, mean across sources, and rejects bad rows', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'weekly-'));
+  const row = (o) => JSON.stringify({ onet: '15-1252.00', source: 'A', url: 'https://a.test/x', metric: 'postings', ...o });
+  try {
+    writeFileSync(join(dir, '2026-07-20.jsonl'), row({ value: 100, asOf: '2026-07-18' }) + '\n');
+    writeFileSync(join(dir, '2026-10-19.jsonl'), [row({ value: 80, asOf: '2026-10-17' }),
+      row({ source: 'B', value: 130, asOf: '2026-10-16', baselineValue: 100, baselineAsOf: '2026-07-18' }),
+      row({ onet: '29-1141.00', value: 5, asOf: '2026-10-17' })].join('\n') + '\n');
+    const weeks = readWeekly(dir);
+    const d = weeklyChange(weeks, '15-1252.00');
+    assert.deepEqual(d.sources.map(s => s.change), [-20, 30]);
+    assert.equal(d.change, 5); assert.equal(d.state, 'measured');
+    assert.equal(weeklyChange(weeks, '29-1141.00').change, null);
+    const db = openDb(':memory:'); taxonomy(db);
+    const out = buildExport(db, config, weeks, now);
+    assert.equal(out.jobs.length, 1); assert.equal(out.jobs[0].chg, 5); assert.equal(out.jobs[0].status, 'ON TIME');
+    assert.equal(buildExport(openDb(':memory:'), config, [], now).jobs.length, 0); db.close();
+    for (const bad of [row({ value: -1, asOf: '2026-10-17' }), row({ value: 1, asOf: '2026-01-01' }), row({ value: 1, asOf: '2026-10-17', url: 'http://a.test' }),
+      row({ value: 1, asOf: '2026-10-17', baselineValue: 1, baselineAsOf: '2026-10-01' }), row({ onet: '151252', value: 1, asOf: '2026-10-17' }), '{oops']) {
+      writeFileSync(join(dir, '2026-10-19.jsonl'), bad + '\n');
+      assert.throws(() => readWeekly(dir), /2026-10-19\.jsonl:1/);
+    }
+  } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
-test('pruning keeps tag cache and monthly budget history', () => {
-  const db = openDb(':memory:'); taxonomy(db); ingestPosting(db, 'test', posting, '2025-01-01');
-  tag(db, db.prepare('SELECT id FROM postings').get().id);
-  reserveBudget(db, { monthlyUsd: 1 }, 100, now);
+test('pruning drops expired postings', () => {
+  const db = openDb(':memory:'); ingestPosting(db, 'test', posting, '2025-01-01');
   prune(db, 210, now);
-  assert.equal(db.prepare('SELECT count(*) n FROM postings').get().n, 0);
-  assert.equal(db.prepare('SELECT count(*) n FROM tags').get().n, 1);
-  assert.equal(db.prepare('SELECT count(*) n FROM budget').get().n, 1); db.close();
+  assert.equal(db.prepare('SELECT count(*) n FROM postings').get().n, 0); db.close();
 });
 
 test('connected UI compiles and has no synthetic charts or live drift', () => {
@@ -291,5 +181,18 @@ test('connected UI compiles and has no synthetic charts or live drift', () => {
   assert.ok(!script.includes('function drift('));
   assert.ok(!script.includes('function seeded('));
   assert.ok(!script.includes('Large model release covers core tasks'));
-  assert.ok(script.includes('if(chg==null) return UNKNOWN'));
+  // Unknown demand and exposure are exercised against the rendered UI in ui.test.js.
+});
+
+test('social score: net of growth vs decline across platforms, null below 3 opinions, ads not scored', () => {
+  const rows = [{ onet: '15-1252.00', platform: 'X', query: 'q', sampled: 30, jobAds: 5, decline: 3, growth: 1, asOf: '2026-10-20' },
+    { onet: '15-1252.00', platform: 'LinkedIn', query: 'q', sampled: 30, jobAds: 20, decline: 2, growth: 0, asOf: '2026-10-20' },
+    { onet: '29-1141.00', platform: 'X', query: 'q', sampled: 30, jobAds: 0, decline: 1, growth: 1, asOf: '2026-10-20' }];
+  for (const r of rows) validateSocialRow(r, '2026-10-19', 'x');
+  const social = [{ week: '2026-10-19', rows }];
+  const s = socialScore(social, '15-1252.00');
+  assert.equal(s.score, -67); assert.equal(s.jobAds, 25); assert.equal(s.platforms.length, 2);
+  assert.equal(socialScore(social, '29-1141.00').score, null);
+  assert.equal(socialScore(social, '13-2011.00'), null);
+  assert.throws(() => validateSocialRow({ ...rows[0], decline: 30 }, '2026-10-19', 'x'), /exceed/);
 });

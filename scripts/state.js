@@ -41,7 +41,7 @@ export function restoreState({ directory = '.state', remote = process.env.PIPELI
   git(directory, ['config', 'user.name', 'unemployed-world-pipeline']);
   git(directory, ['config', 'user.email', 'pipeline@unemployed.world']);
   // A network/auth failure throws. Only a successful empty ls-remote means
-  // first run, so a missing/corrupt state cannot silently reset the budget.
+  // first run, so a missing/corrupt state cannot silently reset history.
   const ref = git(directory, ['ls-remote', '--heads', 'origin', branch]);
   if (ref) {
     git(directory, ['fetch', '--depth=1', 'origin', branch]);
@@ -68,7 +68,7 @@ export function checkpointState(db, databasePath, { directory = '.state', branch
   atomicWrite(join(directory, 'manifest.json'), JSON.stringify({ version: 2, encryption: 'aes-256-gcm', sha256: hash(bytes), updatedAt: new Date().toISOString() }));
   git(directory, ['add', '.gitignore', 'jobs.sqlite.enc', 'manifest.json']);
   const changes = git(directory, ['status', '--porcelain']);
-  if (changes) git(directory, ['commit', '-m', 'Persist pipeline database and budget reservations']);
+  if (changes) git(directory, ['commit', '-m', 'Persist pipeline database']);
   // Never force-push; a concurrent/manual writer causes a safe failure.
   git(directory, ['push', 'origin', `HEAD:refs/heads/${branch}`]);
 }

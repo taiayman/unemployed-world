@@ -4,11 +4,6 @@ on:
   schedule:
     - cron: '23 5 * * *'
   workflow_dispatch:
-    inputs:
-      max_new_jobs:
-        description: Optional lower tagging limit for a verification run
-        required: false
-        type: string
 
 permissions:
   contents: write
@@ -25,9 +20,6 @@ jobs:
       PIPELINE_STATE_GIT: '1'
       STATE_ENCRYPTION_KEY: ${{ secrets.STATE_ENCRYPTION_KEY }}
       PIPELINE_USER_AGENT: ${{ vars.PIPELINE_USER_AGENT }}
-      PIPELINE_MAX_NEW_JOBS: ${{ inputs.max_new_jobs }}
-      OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
-      OPENROUTER_BILLING_ACK: ${{ vars.OPENROUTER_BILLING_ACK }}
       ADZUNA_APP_ID: ${{ secrets.ADZUNA_APP_ID }}
       ADZUNA_APP_KEY: ${{ secrets.ADZUNA_APP_KEY }}
       USAJOBS_API_KEY: ${{ secrets.USAJOBS_API_KEY }}
@@ -43,7 +35,7 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm test
-      - name: Restore durable SQLite and billing state
+      - name: Restore durable SQLite state
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
@@ -51,7 +43,7 @@ jobs:
           git config --global url."https://x-access-token:${GH_TOKEN}@github.com/".insteadOf "https://github.com/"
           export PIPELINE_REMOTE="https://github.com/${GITHUB_REPOSITORY}.git"
           node scripts/state.js
-      - name: Collect, classify and export
+      - name: Collect and export
         run: npm run pipeline
       - name: Publish export for Cloudflare Git integration
         if: ${{ vars.CLOUDFLARE_GIT_DEPLOY == 'true' }}

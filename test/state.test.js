@@ -7,9 +7,8 @@ import { execFileSync } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
 import { restoreState, checkpointState, sealSnapshot, unsealSnapshot } from '../scripts/state.js';
 import { openDb } from '../src/db.js';
-import { reserveBudget } from '../src/tagger.js';
 
-test('state branch survives fresh runners with reservations intact and refuses corrupt archives', () => {
+test('state branch survives fresh runners with data intact and refuses corrupt archives', () => {
   const base = join(tmpdir(), 'opencode'); mkdirSync(base, { recursive: true });
   const root = mkdtempSync(join(base, 'unemployed-state-test-'));
   const encryptionKey = randomBytes(32).toString('base64');
@@ -19,12 +18,12 @@ test('state branch survives fresh runners with reservations intact and refuses c
     const first = join(root, 'first');
     restoreState({ directory: first, remote, encryptionKey });
     const db = openDb(join(first, 'jobs.sqlite'));
-    reserveBudget(db, { monthlyUsd: 1 }, 12345);
+    db.prepare("INSERT INTO meta VALUES('marker','12345')").run();
     checkpointState(db, join(first, 'jobs.sqlite'), { directory: first, encryptionKey }); db.close();
     const second = join(root, 'second');
     restoreState({ directory: second, remote, encryptionKey });
     const restored = openDb(join(second, 'jobs.sqlite'));
-    assert.equal(restored.prepare('SELECT SUM(reserved_micros) n FROM budget').get().n, 12345); restored.close();
+    assert.equal(restored.prepare("SELECT value FROM meta WHERE key='marker'").get().value, '12345'); restored.close();
     writeFileSync(join(second, 'jobs.sqlite.enc'), 'corrupt');
     execFileSync('git', ['add', 'jobs.sqlite.enc'], { cwd: second, stdio: 'pipe' });
     execFileSync('git', ['commit', '-m', 'Test corrupt state'], { cwd: second, stdio: 'pipe' });

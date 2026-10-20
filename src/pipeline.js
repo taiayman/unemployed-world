@@ -7,25 +7,14 @@ import { Http } from './http.js';
 import { jobSources, validatePosting } from './sources/jobs.js';
 import { newsSources, ingestNews } from './sources/news.js';
 import { sentimentSources, ingestSentiment } from './sources/sentiment.js';
-import { tagNewPostings } from './tagger.js';
-import { buildExport } from './metrics.js';
+import { buildExport, readWeekly, validateSocialRow } from './metrics.js';
 import { checkpointState } from '../scripts/state.js';
 import { refreshReference } from './reference.js';
 
 export function loadConfig(path = process.env.PIPELINE_CONFIG || 'config/pipeline.json') {
   const c = JSON.parse(readFileSync(path, 'utf8'));
-  for (const key of ['batchSize', 'maxJobsPerRun', 'descriptionChars', 'outputTokensPerJob', 'maxAttemptsPerHash']) assert(Number.isInteger(c.llm[key]) && c.llm[key] > 0, `Invalid llm.${key}`);
-  assert(c.llm.batchSize <= 20 && c.llm.maxJobsPerRun <= 2000, 'LLM run limits too large');
-  assert(Number.isInteger(c.llm.requestTimeoutMs) && c.llm.requestTimeoutMs >= 1000 && c.llm.requestTimeoutMs <= 300000, 'Invalid LLM request timeout');
   assert(c.retentionDays >= 100 && c.retentionDays <= 730, 'retentionDays must preserve 90-day baseline');
-  assert(c.llm.monthlyUsd >= 0 && c.llm.monthlyUsd <= 100, 'Monthly cap must be between $0 and $100');
-  assert(c.llm.maxPromptUsdPerMillion >= 0 && c.llm.maxCompletionUsdPerMillion >= 0, 'Invalid token price ceilings');
-  assert(c.metrics.minMatchedDays >= 1 && c.metrics.minMatchedDays <= 7, 'Invalid minimum matched days');
-  if (process.env.PIPELINE_MAX_NEW_JOBS) {
-    const limit = Number(process.env.PIPELINE_MAX_NEW_JOBS);
-    assert(Number.isInteger(limit) && limit > 0 && limit <= c.llm.maxJobsPerRun, 'Manual tagging limit may only lower the configured run cap');
-    c.llm.maxJobsPerRun = limit;
-  }
+  assert(typeof c.weeklyDir === 'string' && c.weeklyDir && typeof c.socialDir === 'string' && c.socialDir, 'weeklyDir and socialDir are required');
   return c;
 }
 
@@ -63,7 +52,10 @@ export async function collectGroup(db, http, config, kind, sources, ingest, date
   return successes;
 }
 
-export async function run({ config = loadConfig(), exportOnly = false, noLlm = false } = {}) {
+export async function run({ config = loadConfig(), exportOnly = false } = {}) {
+  // Validate manual weekly data before touching the database; a bad row stops the run.
+  const weeks = readWeekly(config.weeklyDir);
+  const social = readWeekly(config.socialDir, validateSocialRow);
   const db = openDb(config.database);
   const lockPath = `${config.database}.lock`;
   // Refuse simultaneous local writers as well as Actions concurrency.
@@ -80,17 +72,9 @@ export async function run({ config = loadConfig(), exportOnly = false, noLlm = f
       succeeded = await collectGroup(db, http, config, 'jobs', jobSources(config.jobs, http), ingestPosting);
       await collectGroup(db, http, config, 'news', newsSources(config.news, http), ingestNews);
       await collectGroup(db, http, config, 'sentiment', sentimentSources(config.sentiment, http), ingestSentiment);
-      if (!noLlm) {
-        try {
-          const result = await tagNewPostings(db, http, config.llm, { checkpoint, allowPaid: durable });
-          console.log(`Tagging: ${result.state}, ${result.tagged} new postings`);
-          db.prepare("INSERT OR REPLACE INTO meta VALUES('last_tagging',?)").run(JSON.stringify(result));
-        } catch (error) { console.warn(`Tagging stopped: ${error.message}`); }
-      }
       prune(db, config.retentionDays);
     }
-    const output = buildExport(db, config);
-    output.tagging = JSON.parse(db.prepare("SELECT value FROM meta WHERE key='last_tagging'").get()?.value || 'null');
+    const output = buildExport(db, config, weeks, new Date(), social);
     await checkpoint();
     // An all-sources outage does not replace the last successful deployment.
     if (!exportOnly && succeeded === 0) throw new Error('No job source succeeded; preserved state but refused a new public export');
@@ -101,6 +85,6 @@ export async function run({ config = loadConfig(), exportOnly = false, noLlm = f
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  run({ exportOnly: process.argv.includes('--export-only'), noLlm: process.argv.includes('--no-llm') })
+  run({ exportOnly: process.argv.includes('--export-only') })
     .catch(error => { console.error(error.message); process.exitCode = 1; });
 }

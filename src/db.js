@@ -15,12 +15,6 @@ export function openDb(path) {
     CREATE TABLE IF NOT EXISTS identities(identity TEXT PRIMARY KEY,posting_id TEXT NOT NULL REFERENCES postings(id));
     CREATE TABLE IF NOT EXISTS observations(day TEXT NOT NULL,source TEXT NOT NULL,posting_id TEXT NOT NULL REFERENCES postings(id),
       PRIMARY KEY(day,source,posting_id));
-    CREATE TABLE IF NOT EXISTS tags(content_hash TEXT NOT NULL,version TEXT NOT NULL,model TEXT NOT NULL,
-      result TEXT NOT NULL,created_at TEXT NOT NULL,PRIMARY KEY(content_hash,version,model));
-    CREATE TABLE IF NOT EXISTS attempts(content_hash TEXT NOT NULL,version TEXT NOT NULL,model TEXT NOT NULL,count INTEGER NOT NULL,
-      PRIMARY KEY(content_hash,version,model));
-    CREATE TABLE IF NOT EXISTS budget(id TEXT PRIMARY KEY,month TEXT NOT NULL,reserved_micros INTEGER NOT NULL,
-      actual_micros INTEGER,status TEXT NOT NULL,created_at TEXT NOT NULL);
     CREATE TABLE IF NOT EXISTS source_runs(day TEXT NOT NULL,source TEXT NOT NULL,status TEXT NOT NULL,
       count INTEGER NOT NULL,detail TEXT,config_hash TEXT NOT NULL,PRIMARY KEY(day,source));
     CREATE TABLE IF NOT EXISTS news(id TEXT PRIMARY KEY,source TEXT NOT NULL,title TEXT NOT NULL,url TEXT NOT NULL,
@@ -59,8 +53,7 @@ export function ingestPosting(db, source, item, date = day()) {
     if (match) { id = match.posting_id; break; }
   }
   id ??= tuple;
-  // Stable first content wins on a syndicated duplicate; edits do not trigger
-  // another paid call. This deliberately favors cost control over retagging edits.
+  // Stable first content wins on a syndicated duplicate.
   db.prepare(`INSERT INTO postings VALUES(?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET last_seen=excluded.last_seen`)
     .run(id, title, company, location, url || null, description, hash([normalize(title), normalize(company), normalize(location), normalize(description)]), date, date, item.publishedAt || null);
   for (const key of keys) db.prepare('INSERT OR IGNORE INTO identities VALUES(?,?)').run(key, id);
@@ -81,7 +74,6 @@ export function prune(db, retentionDays, now = new Date()) {
     db.prepare('DELETE FROM identities WHERE posting_id IN (SELECT id FROM postings WHERE last_seen<?)').run(cutoff);
     db.prepare('DELETE FROM postings WHERE last_seen<?').run(cutoff);
     db.prepare('DELETE FROM news WHERE last_seen<?').run(cutoff);
-    // Tags, attempts and the budget ledger survive pruning: no repeat billing.
     db.exec('COMMIT');
   } catch (error) { db.exec('ROLLBACK'); throw error; }
 }
