@@ -55,8 +55,7 @@ test('a dying job offers rebooking to better jobs with similar skills', async ()
     { ...base, id: 'b', name: 'THERAPISTS', short: 'THERAPISTS', chg: 3, rebook: [] },
     { ...base, id: 'c', name: 'DATA SCIENTISTS', short: 'DATA', chg: -55, rebook: [] }
   ] });
-  const panel = doc.querySelector('#rebook');
-  assert.equal(panel.hidden, false);
-  const offers = [...panel.querySelectorAll('.rbcard')].map(r => r.getAttribute('aria-label'));
+  const offers = [...doc.querySelectorAll('.subrows .row')].map(r => r.getAttribute('aria-label'));
+  assert.equal(doc.querySelectorAll('#rows > .row').length, 3);
   assert.deepEqual(offers, ['Rebook to THERAPISTS, 76% skill match, GROWING']);
 });

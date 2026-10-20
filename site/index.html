@@ -75,32 +75,12 @@ button,input{font:inherit}
 .row{padding:5px 6px;border-radius:4px;cursor:pointer;border:1px solid transparent;width:100%;background:none;color:inherit;text-align:left}
 .row:hover{background:#181b22}
 .row[aria-selected="true"]{border-color:var(--sign);background:#1a1c20}
-.rebook{margin:0 0 16px;border:1px solid var(--line);border-radius:10px;background:var(--board);overflow:hidden}
-.rebook[hidden]{display:none}
-.rbalert{display:flex;flex-wrap:wrap;align-items:center;gap:10px 18px;padding:16px 18px;border-left:6px solid var(--c);background:linear-gradient(90deg,color-mix(in srgb,var(--c) 16%,transparent),transparent 70%)}
-.rbtag{font-family:var(--mono);font-weight:700;font-size:13px;letter-spacing:.14em;background:var(--c);color:#111;padding:5px 9px;border-radius:4px;animation:rbblink 1.4s steps(1) infinite}
-@keyframes rbblink{50%{opacity:.55}}
-.rbtitle{font-family:var(--display);font-weight:900;font-size:clamp(28px,4.4vw,46px);line-height:.9;text-transform:uppercase}
-.rbfacts{font-size:16px;color:var(--muted);flex-basis:100%}
-.rbfacts b{color:var(--c);font-family:var(--mono)}
-.rblabel{padding:14px 18px 0;font-size:12px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
-.rbcards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;padding:10px 18px 16px}
-.rbcard{all:unset;cursor:pointer;display:flex;flex-direction:column;gap:8px;padding:14px;border:1px solid var(--line);border-radius:8px;background:#0f1216}
-.rbcard:hover,.rbcard:focus-visible{border-color:var(--sign)}
-.rbgate{display:flex;justify-content:space-between;font-family:var(--mono);font-size:12px;color:var(--muted);letter-spacing:.08em}
-.rbgate b{color:var(--sign);font-size:16px}
-.rbroute{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;min-width:0}
-.rbroute span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:40%}
-.rbroute i{flex:1;border-top:2px dashed var(--line)}
-.rbdest{font-family:var(--display);font-weight:800;font-size:clamp(20px,2.4vw,28px);line-height:1;text-transform:uppercase}
-.rbmeter{height:6px;border-radius:3px;background:var(--line);overflow:hidden}
-.rbmeter i{display:block;height:100%;background:var(--sign)}
-.rbmeta{display:flex;justify-content:space-between;gap:8px;font-size:14px}
-.rbmeta b{font-family:var(--mono)}
-.rbshare{display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:0 18px 16px}
-.rbshare .btn{text-decoration:none;font-size:13px;padding:10px 14px}
-.rbsrc{color:var(--muted);font-size:12px;margin-left:auto}
-@media (max-width:760px){.rbcards{grid-template-columns:1fr}.rbsrc{margin-left:0}}
+.subrows{border-left:3px solid var(--sign);margin:2px 0 6px 6px;padding:2px 0}
+.subrows .row{opacity:.92}
+.subrows .grp.code .f{color:var(--sign)}
+.subrows .grp.chg .f{color:var(--sign)}
+.subshare{display:inline-block;margin:4px 0 2px 12px;font-family:var(--mono);font-size:12px;letter-spacing:.08em;color:var(--muted);text-decoration:none}
+.subshare:hover{color:var(--sign)}
 .row.dim{opacity:.28}
 .grp{display:flex;gap:2px;flex:none}
 .f{position:relative;width:var(--cw);height:calc(var(--cw)*1.42);background:linear-gradient(var(--flap) 0 50%,var(--flap-lo) 50% 100%);border-radius:2px;display:grid;place-items:center;overflow:hidden;font-family:var(--mono);font-weight:700;font-size:calc(var(--cw)*.92);line-height:1;color:var(--ink)}
@@ -162,7 +142,6 @@ footer .wrap{padding-block:18px 28px;color:var(--muted);font-size:13px;display:f
 
 
 <main class="wrap">
-  <div class="rebook" id="rebook" aria-live="polite" hidden></div>
   <div class="board" id="board" role="listbox" aria-label="Job departures board">
     <div class="heads" id="heads"></div>
     <div id="rows"></div>
@@ -238,6 +217,7 @@ const LAYOUTS = {
   narrow:[{k:"job",n:13,h:"Job",short:true},{k:"st",n:9,h:"Status"}]
 };
 let layout = null, selected = 0;
+const boardRows = () => [...rowsEl.children].filter(e=>e.classList.contains('row'));
 const rowsEl = document.getElementById('rows'), headsEl = document.getElementById('heads'), boardEl = document.getElementById('board');
 
 function value(job, col){
@@ -341,7 +321,7 @@ function build(){
   });
 }
 function paintRow(i){
-  const r = rowsEl.children[i]; if(!r) return;
+  const r = boardRows()[i]; if(!r) return;
   const st = status(JOBS[i].chg, JOBS[i]);
   const g = r.querySelector('.grp.st');
   g.className = 'grp st st-'+st.key;
@@ -353,7 +333,7 @@ function paintRow(i){
   r.setAttribute('aria-label', JOBS[i].name+', '+st.label+', demand '+fmtChg(JOBS[i].chg)+', AI risk '+JOBS[i].ai);
 }
 function updateRow(i, delayBase){
-  const r = rowsEl.children[i]; const cols = LAYOUTS[layout];
+  const r = boardRows()[i]; const cols = LAYOUTS[layout];
   cols.forEach(c=>{
     const g = r.querySelector('.grp.'+c.k);
     value(JOBS[i],c).split("").forEach((ch,j)=>setCell(g.children[j], ch, (delayBase||0)+j*35));
@@ -362,7 +342,7 @@ function updateRow(i, delayBase){
 }
 function sweep(base){
   const cols = LAYOUTS[layout];
-  [...rowsEl.children].forEach((r,i)=>{
+  boardRows().forEach((r,i)=>{
     let col=0;
     cols.forEach(c=>{
       const g=r.querySelector('.grp.'+c.k);
@@ -382,42 +362,44 @@ function verdict(job){
 }
 function select(i, scroll){
   selected=i;
-  [...rowsEl.children].forEach((r,j)=>r.setAttribute('aria-selected', j===i));
-  const shown=renderRebook(i);
-  if(scroll) (shown ? rebookEl : rowsEl.children[i]).scrollIntoView({behavior: reduce?'auto':'smooth', block: shown?'start':'center'});
+  boardRows().forEach((r,j)=>r.setAttribute('aria-selected', j===i));
+  renderRebook(i);
+  if(scroll) boardRows()[i].scrollIntoView({behavior: reduce?'auto':'smooth', block:'center'});
 }
 
 /* rebooking: shrinking jobs point to the closest-skill jobs that are doing better */
-const rebookEl=document.getElementById('rebook');
 const byId=new Map(JOBS.map(j=>[j.id,j]));
 const level=j=>STATUS.indexOf(status(j.chg,j));
 function renderRebook(i){
+  rowsEl.querySelectorAll('.subrows').forEach(e=>e.remove());
   const job=JOBS[i], st=status(job.chg,job), options=(job.rebook||[]).filter(r=>byId.has(r.id)&&r.match>=20);
   let picks=level(job)>=3 ? options.filter(r=>level(byId.get(r.id))<=1).slice(0,3) : [];
   if(level(job)>=3 && picks.length<3) picks=picks.concat(options.filter(r=>level(byId.get(r.id))===2).slice(0,3-picks.length));
-  rebookEl.hidden=!picks.length;
-  if(!picks.length){ rebookEl.innerHTML=''; return false; }
+  if(!picks.length) return false;
+  const box=document.createElement('div'); box.className='subrows';
+  const cols=LAYOUTS[layout];
+  picks.forEach(p=>{
+    const j=byId.get(p.id), s2=status(j.chg,j), at=JOBS.indexOf(j);
+    const r=document.createElement('button'); r.type='button'; r.className='row sub';
+    r.setAttribute('aria-label','Rebook to '+j.name+', '+p.match+'% skill match, '+s2.label);
+    cols.forEach(c=>{
+      if(c.k==='st'){ const l=document.createElement('span'); l.className='lamp'; l.style.background=s2.color; r.appendChild(l); }
+      const text = c.k==='code' ? 'REBOOK' : c.k==='job' ? (c.short?j.short:j.name) : c.k==='chg' ? (p.match+'%').padStart(c.n,' ') : s2.label;
+      const g=document.createElement('span'); g.className='grp '+c.k+(c.k==='st'?' st-'+s2.key:'');
+      text.slice(0,c.n).padEnd(c.n,' ').split('').forEach(ch=>g.appendChild(makeCell(ch)));
+      r.appendChild(g);
+    });
+    r.addEventListener('click',()=>select(at,true));
+    box.appendChild(r);
+  });
   const pct=c=>c==null?'--':(c>0?'+':'')+c+'%';
-  const tag=st.label==='DYING'?'FLIGHT CANCELLED':'FLIGHT DELAYED';
-  const first=byId.get(picks[0].id);
-  const post=job.name+' is '+st.label+': hiring '+pct(job.chg)+' since ChatGPT launched (all US jobs '+pct(MARKET)+'). Rebooking to '+first.name+' ('+picks[0].match+'% skill match). Check your job:';
+  const post=job.name+' is '+st.label+': hiring '+pct(job.chg)+' since ChatGPT launched (all US jobs '+pct(MARKET)+'). Rebooking to '+byId.get(picks[0].id).name+'. Check your job:';
   const url=((window.location&&window.location.href)||'').split(/[?#]/)[0];
-  rebookEl.style.setProperty('--c', st.color);
-  rebookEl.innerHTML=
-    '<div class="rbalert"><span class="rbtag">'+tag+'</span><span class="rbtitle">'+esc(job.name)+'</span>'+
-    '<span class="rbfacts">Hiring <b>'+pct(job.chg)+'</b> since ChatGPT launched'+(MARKET==null?'':' · all US jobs <b style="color:var(--ink)">'+pct(MARKET)+'</b>')+'</span></div>'+
-    '<div class="rblabel">Connecting flights · same skills, better hiring</div>'+
-    '<div class="rbcards">'+picks.map(p=>{ const j=byId.get(p.id), s2=status(j.chg,j), at=JOBS.indexOf(j);
-      return '<button type="button" class="rbcard" data-at="'+at+'" aria-label="Rebook to '+esc(j.name)+', '+p.match+'% skill match, '+s2.label+'">'+
-        '<span class="rbgate"><span>GATE <b>'+String(at+1).padStart(2,'0')+'</b></span><span>BOARDING NOW</span></span>'+
-        '<span class="rbroute"><span>'+esc(job.short)+'</span><i></i>✈</span>'+
-        '<span class="rbdest">'+esc(j.name)+'</span>'+
-        '<span class="rbmeter"><i style="width:'+p.match+'%"></i></span>'+
-        '<span class="rbmeta"><span><b>'+p.match+'%</b> skill match</span><span style="color:'+s2.color+'">'+s2.label+' · '+pct(j.chg)+'</span></span></button>'; }).join('')+'</div>'+
-    '<div class="rbshare"><a class="btn" target="_blank" rel="noopener" href="https://x.com/intent/post?text='+encodeURIComponent(post)+'&url='+encodeURIComponent(url)+'">Post on X</a>'+
-    '<a class="btn ghost" target="_blank" rel="noopener" href="https://www.linkedin.com/sharing/share-offsite/?url='+encodeURIComponent(url)+'">Share on LinkedIn</a>'+
-    '<span class="rbsrc">Hiring: Indeed job postings. Skill match: O*NET skill, knowledge and work ratings.</span></div>';
-  rebookEl.querySelectorAll('.rbcard').forEach(b=>b.addEventListener('click',()=>select(+b.dataset.at,true)));
+  const a=document.createElement('a'); a.className='subshare'; a.target='_blank'; a.rel='noopener';
+  a.href='https://x.com/intent/post?text='+encodeURIComponent(post)+'&url='+encodeURIComponent(url);
+  a.textContent='REBOOK = SAME SKILLS, BETTER HIRING · % = SKILL MATCH (O*NET) · POST ON X';
+  box.appendChild(a);
+  boardRows()[i].after(box);
   return true;
 }
 
@@ -431,7 +413,7 @@ function match(text){
 }
 q.addEventListener('input',()=>{
   const t=q.value.trim().toUpperCase();
-  [...rowsEl.children].forEach((r,i)=>r.classList.toggle('dim', !!t && !(JOBS[i].name.includes(t)||JOBS[i].short.includes(t))));
+  boardRows().forEach((r,i)=>r.classList.toggle('dim', !!t && !(JOBS[i].name.includes(t)||JOBS[i].short.includes(t))));
   if(!t) hint.textContent='Search your job.';
 });
 document.getElementById('find').addEventListener('submit',e=>{
@@ -454,7 +436,7 @@ JOBS.sort((a,b)=>doom(b)-doom(a));
 build(); select(0,false);
 if(!reduce) setTimeout(()=>sweep(0), 350);
 // Daily export only; no fabricated live drift.
-let rt, lastW=boardEl.clientWidth; const ro=new ResizeObserver(()=>{ clearTimeout(rt); rt=setTimeout(()=>{ const w=boardEl.clientWidth; if(Math.abs(w-lastW)<4) return; lastW=w; build(); }, 150); });
+let rt, lastW=boardEl.clientWidth; const ro=new ResizeObserver(()=>{ clearTimeout(rt); rt=setTimeout(()=>{ const w=boardEl.clientWidth; if(Math.abs(w-lastW)<4) return; lastW=w; build(); renderRebook(selected); }, 150); });
 ro.observe(boardEl);
 })();
 </script>
